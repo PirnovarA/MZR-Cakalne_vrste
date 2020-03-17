@@ -1,4 +1,4 @@
 # Glavne datoteke
 
-Tukaj so zbrane vse funckije, ki generirajo podatke, izvajajo simulacije in izracunavajo statistike.
+Tukaj so zbrane vse funkcije, ki generirajo podatke, izvajajo simulacije in izracunavajo statistike.
 
