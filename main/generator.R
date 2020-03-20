@@ -1,2 +1,149 @@
 source("lib/libraries.R")
+source("main/functions.R")
+
+simulacijaVrste <- function(lambda, mu, k, n, cas) {
+  # lambda = intenziteta prihodov
+  # mu = intenziteta strezbe
+  # k = stevilo streznih mest
+  # n = stevilo cakalnih mest
+  # cas = cas, kolikor so strezna mesta odprta
+  
+  
+}
+
+simulacijaPrihodov <- function(lambda, maxCas = FALSE, maxPrihodi = FALSE) {
+  # lambda = intenziteta prihodov
+  # maxCas = cas, kolikor so strezna mesta odprta
+  # maxPrihodi = koliko prihodov imamo
+  # Funkcija simulira prihode, katerih medprihodni cas je porazdeljen eksponentno
+  # Ali cas ali prihod morata biti razlicna od FALSE, vsaj en mora biti FALSE
+  # Ce maxCas != F: Toliko prihodov, dokler skupni cas prihodov manjsi od cas
+  # Ce maxPrihodi != F: 'prihodi' prihodov
+  # Vrne: data frame s stolpcema medsebojnih casov prihodov in skupnim casom
+  if (maxCas == F & maxPrihodi == F) {
+    errorCondition("Cas ali prihodi morata biti razlicna od FALSE.")
+  } else if (maxCas != F & maxPrihodi != F) {
+    errorCondition("Ali cas ali prihodi morata biti FALSE (ne oba).")
+  }
+  if (maxPrihodi != FALSE) {
+    prihodi <- data.frame(medprihodni.casi = rexp(maxPrihodi, lambda)) %>% 
+      mutate(cas.prihoda = cumsum(medprihodni.casi))
+  } else {
+    EValPrihodov <- lambda*maxCas   # zaradi HPP
+    prihodi <- data.frame(medprihodni.casi = rexp(EValPrihodov, lambda)) %>% 
+      mutate(cas.prihoda = cumsum(medprihodni.casi))
+    while (prihodi[nrow(prihodi), "cas.prihoda"] < maxCas) {
+      # sqrt(EValPrihodov) ker je to sd poissonove porazdelitve
+      prihodiDodatni <-
+        data.frame(medprihodni.casi = rexp(sqrt(EValPrihodov), lambda),
+                   cas.prihoda = 0)
+      prihodi <- prihodi %>% bind_rows(prihodiDodatni) %>% 
+        mutate(cas.prihoda = cumsum(medprihodni.casi))
+    }
+    prihodi <- prihodi %>% filter(cas.prihoda <= maxCas)
+  }
+  return(prihodi)
+}
+
+simulacijaStrezbeEnaki <- function(mu, k, n, prihodi) {
+  # Simuliramo case strezbe pri cemer predpostavljamo, da so vsi
+  # strezniki enaki
+  # mu = intenziteta strezbe
+  # k = st. streznikov
+  # n = st. cakalnih mest
+  # prihodi = data frame prihodov
+  stOseb <- nrow(prihodi)
+  prihodi <-  prihodi %>% mutate(id = 1:nrow(.))
+  strezniCasi <- rexp(stOseb, mu)
+  
+  # Statistike ####
+  stOdhodov <- 0  # St oseb, ki ni imelo prostora v cakalnici
+  strezeneOsebe <- numeric(stOseb)  # Vse osebe, ki so bile strezene, 
+                                          # imajo 1
+  cakalniCasi <- numeric(stOseb) # Casi v cakalnici
+  dogodkiOseb <- data.frame(id = 1:stOseb,  # id
+                            prihod = rep(NA, stOseb), # cas
+                            zacetekStrezbe = rep(NA, stOseb), # cas
+                            cakanje = rep(0, stOseb), #0/1
+                            odhod = rep(NA, stOseb)) # cas
+  # Potrebno za delovanje ####
+  stCak <- 0  # St. v cakalnici
+  cakalnica <- rep(NA, n) # Vektor casov prihoda, kjer ime ponazarja osebo
+  stZas <- 0  # St. trenutno strezenih
+  strezniki <- numeric(k) # ID-ji strezenih
+  
+  osebe <- prihodi$id # ID-ji oseb, isti vrstni red kot dogodki. Ce -oseba,
+                      # potem to pomeni, da je trenutno strezena
+  dogodki <- prihodi$cas.prihoda    # Casi dogodkov
+  stanje <- numeric(stOseb)  # ce 0, potem oseba pride, ce 1, potem je 
+                                    # ze prisla in je cakala
+  while (length(dogodki) > 0) {
+    cas <- dogodki[1]
+    dogodki <- dogodki[-1]
+    oseba <- osebe[1]
+    osebe <- osebe[-1]
+    if (oseba > 0) {
+      # Oseba je prisla
+      dogodkiOseb$prihod[oseba] <- cas
+      if (stZas < k) {
+        # Prosto strezno mesto
+        casStrezbe <- strezniCasi[oseba]  # Dobimo strezni cas za to osebo
+        point <- getPosition(dogodki, cas + casStrezbe)  # lokacija dogodka
+        dogodki <- insPosition(dogodki, cas + casStrezbe, point)  #dodamo dogodek
+        osebe <- insPosition(osebe, -oseba, point)  # Po vrsti kdaj oseba zapusti
+        stZas <- stZas + 1  # Mesto se zasede
+        strezniki[which(strezniki == 0)[1]] <- oseba  # Oseba je pri strezniku
+        strezeneOsebe[oseba] <- 1 # Oseba je bila postrezena
+        dogodkiOseb$zacetekStrezbe <- cas
+      } else if (stCak < n) {
+        # Strezno mesto zasedeno, cakalnica prosta
+        prostoMesto <- which(is.na(cakalnica))[1]  # Kje je prosto mesto
+        cakalnica[prostoMesto] <- cas  # Oseba v cakalnici
+        names(cakalnica)[prostoMesto] <- oseba
+        stCak <- stCak + 1  # Eno cakalno mesto vec zasedeno
+        dogodkiOseb$cakanje[oseba] <- 1
+      } else {
+        # Strezno mesto zasedeno, cakalnica zasedena
+        stOdhodov <- stOdhodov + 1
+        dogodkiOseb$odhod[oseba] <- cas
+      }
+        
+    } else {
+      # Oseba je opravila in bo odsla.
+      strezniki[which(strezniki == -oseba)] <- 0
+      stZas <- stZas - 1
+      dogodkiOseb$odhod[-oseba] <- cas
+      if (stCak > 0) {
+        # Ce kdo v cakalnici, bo na vrsti
+        naVrstiInd <- which(cakalnica == min(cakalnica, na.rm = T))[1]
+        casPrihoda <- cakalnica[naVrstiInd]
+        osebaNaVrsti <- as.integer(names(casPrihoda))  # Oseba iz cakalnice
+        cakalnica[naVrstiInd] <- NA
+        stCak <- stCak - 1 # Zapusti cakalnico
+        
+        cakalniCasi[osebaNaVrsti] <- cas - casPrihoda  # Cas cakanja
+        
+        casStrezbe <- strezniCasi[osebaNaVrsti] # Dobimo strezni cas za to osebo
+        point <- getPosition(dogodki, cas + casStrezbe)  # lokacija dogodka
+        dogodki <- insPosition(dogodki, cas + casStrezbe, point) # dodamo dogodek
+        osebe <- insPosition(osebe, -osebaNaVrsti, point)  # Po vrsti kdaj 
+                                                           # oseba zapusti
+        stZas <- stZas + 1  # Mesto se zasede
+        strezniki[which(strezniki == 0)[1]] <- osebaNaVrsti # Oseba je pri strezniku
+        strezeneOsebe[osebaNaVrsti] <- 1 # Oseba je bila postrezena
+        dogodkiOseb$cakanje[osebaNaVrsti] <- cas  # Oseba iz cakanja je na vrsti
+      }
+    }
+  }
+  
+  # queuecomputer::queue_step(prihodi$cas.prihoda, strezbeVse, k)
+  rezultati <- list()
+  rezultati$postrezeni <- which(strezeneOsebe == 1) # Postrezene stranke
+  rezultati$stOdhodov <- stOdhodov  # St ljudi, ki je je odslo ker ni bilo prostora
+  rezultati$cakalniCasi <- cakalniCasi  # cakalni casi ljudi (ki so cakali)
+  rezultati$dogodkiOseb <- dogodkiOseb # za simulacijo
+  
+  return(rezultati)
+}
+
 
