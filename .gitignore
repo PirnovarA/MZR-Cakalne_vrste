@@ -38,3 +38,4 @@ vignettes/*.pdf
 # Additional files
 *.html
 .DS_store
+*.pdf
