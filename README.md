@@ -5,3 +5,5 @@ Splosna oznaka za cakalno vrsto s **k** strezniki in **n** cakalnimi mesti, kjer
 
 V osnovnem modelu, da lahko govorimo o Markovski verigi in da zadostimo zgornjim lastnostim, zahtevamo, da so medprihodni casi porazdeljeni eksponentno z intenziteto _lambda_, casi strezbe pa z intenziteto _mu_.  
 
+Zaradi zgornjih lastnosti prihodi (in strezbe, ce predpostavimo, da je vedno nekdo na voljo za biti stranka) sledijo homogenemu Poissonovem procesu z intenziteto lambda (mu). V primeru, da je strank v nekem trenutku vec, kot je streznih mest in cakalnice, potem stranka oddide.
+
