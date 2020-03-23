@@ -1,17 +1,8 @@
 source("lib/libraries.R")
 source("main/functions.R")
 
-simulacijaVrste <- function(lambda, mu, k, n, cas) {
-  # lambda = intenziteta prihodov
-  # mu = intenziteta strezbe
-  # k = stevilo streznih mest
-  # n = stevilo cakalnih mest
-  # cas = cas, kolikor so strezna mesta odprta
-  
-  
-}
-
-simulacijaPrihodov <- function(lambda, maxCas = FALSE, maxPrihodi = FALSE) {
+# PRIHODI ####################################################################
+simulacija.prihodov <- function(lambda, maxCas = FALSE, maxPrihodi = FALSE) {
   # lambda = intenziteta prihodov
   # maxCas = cas, kolikor so strezna mesta odprta
   # maxPrihodi = koliko prihodov imamo
@@ -44,17 +35,67 @@ simulacijaPrihodov <- function(lambda, maxCas = FALSE, maxPrihodi = FALSE) {
   }
   return(prihodi)
 }
+# STREZBE ####################################################################
+simulacija.strezb <- function(prihodi, tip = "exp", ...) {
+  # Funkcija ki simulira strezne case
+  # prihodi = ce st. potem za toliko oseb rabimo zgenerirati. Ce prihodi
+  #   data.frame, potem:
+  #       - ce ni stolpca skupina: zgeneriramo po isti porazdelitvi za vse
+  #       - ce stolpec skupina: skupine od 1:g, vsaka ima svoje parametre,
+  #                             v vrstnem redu kot skupine (1:g)
+  # tip = kako simuliramo case
+  # ... = ostali parametri
+  # Vrne vektor casov strezbe v istem redu kot input
+  param <- list(...)
+  if (!(tip %in% c("exp"))) {
+    # TODO dodaj dodatne spremenljivke
+    stop("Tip porazdelitve ni pravilen!")
+  }
+  if ((is.data.frame(prihodi) | length(prihodi) > 1) & 
+      any(names(prihodi) == "skupina")) {
+    # generiramo po skupinah, ker jih imamo
+    if (tip == "exp") {
+      # exponentna porazdelitev
+      if (length(param$mu) != length(unique(prihodi$skupina))) {
+        stop("Stevilo parametrov mora bit enako kot stevilo skupin!")
+      }
+      casiStrezb <- prihodi %>% group_by(skupina) %>% 
+        mutate(casiStrezb = rexp(n(), param$mu[skupina[1]])) %>% 
+        pull(casiStrezb)
+    }
+  } else {
+    # Vsi imajo enako porazdelitev
+    if (is.data.frame(prihodi)) {
+      stOseb <- nrow(prihodi)
+    } else if (length(prihodi) > 1) {
+      stOseb <- length(prihodi)
+    } else {
+      stOseb <- prihodi
+    }
+    if (tip == "exp") {
+      # Exponentna porazdelitev
+      casiStrezb <- rexp(stOseb, param$mu)
+    }
+  }
+  return(casiStrezb)
+}
 
-simulacijaStrezbeEnaki <- function(mu, k, n, prihodi) {
+# FUNKCIJA POTEKA VRSTE ######################################################
+simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi) {
   # Simuliramo case strezbe pri cemer predpostavljamo, da so vsi
   # strezniki enaki
   # mu = intenziteta strezbe
   # k = st. streznikov
   # n = st. cakalnih mest
   # prihodi = data frame prihodov
+  # Vrne seznam statistik vrste:
+  #   id osebe
+  #   cas prihoda
+  #   zacetek strezbe
+  #   ali je oseba cakala ali ne
+  #   cas odhoda
   stOseb <- nrow(prihodi)
   prihodi <-  prihodi %>% mutate(id = 1:nrow(.))
-  strezniCasi <- rexp(stOseb, mu)
   
   # Statistike ####
   stOdhodov <- 0  # St oseb, ki ni imelo prostora v cakalnici
@@ -94,7 +135,7 @@ simulacijaStrezbeEnaki <- function(mu, k, n, prihodi) {
         stZas <- stZas + 1  # Mesto se zasede
         strezniki[which(strezniki == 0)[1]] <- oseba  # Oseba je pri strezniku
         strezeneOsebe[oseba] <- 1 # Oseba je bila postrezena
-        dogodkiOseb$zacetekStrezbe <- cas
+        dogodkiOseb$zacetekStrezbe[oseba] <- cas
       } else if (stCak < n) {
         # Strezno mesto zasedeno, cakalnica prosta
         prostoMesto <- which(is.na(cakalnica))[1]  # Kje je prosto mesto
@@ -131,7 +172,7 @@ simulacijaStrezbeEnaki <- function(mu, k, n, prihodi) {
         stZas <- stZas + 1  # Mesto se zasede
         strezniki[which(strezniki == 0)[1]] <- osebaNaVrsti # Oseba je pri strezniku
         strezeneOsebe[osebaNaVrsti] <- 1 # Oseba je bila postrezena
-        dogodkiOseb$cakanje[osebaNaVrsti] <- cas  # Oseba iz cakanja je na vrsti
+        dogodkiOseb$zacetekStrezbe[osebaNaVrsti] <- cas  # Oseba iz cakanja je na vrsti
       }
     }
   }
@@ -145,5 +186,35 @@ simulacijaStrezbeEnaki <- function(mu, k, n, prihodi) {
   
   return(rezultati)
 }
+
+# SIMULACIJA VRSTE ###########################################################
+simulacija.vrste <- function(lambda, mu, k, n, cas) {
+  # lambda = intenziteta prihodov
+  # mu = intenziteta strezbe
+  # k = stevilo streznih mest
+  # n = stevilo cakalnih mest
+  # cas = cas, kolikor so strezna mesta odprta
+  
+  
+}
+
+# TESTIRANJE ################################################################
+
+prihodi <- simulacija.prihodov(100, maxCas = 10)
+strezniCasi <- simulacija.strezb(prihodi = prihodi, tip = "exp", mu = 5)
+
+rez <- simulacija.poteka.vrste(20, 5, 10, prihodi, strezniCasi)
+
+# TODO simulacija, ce osebe nepotrpezljive, ce 2 vrsti streznikov
+# ce preddoloceno, kam se morajo uvrstit osebe, druga porazdelitev strezbe,
+# priority
+
+# TODO MC simulacija, za nekatere vrednosti, grafi statistik
+
+
+
+
+
+
 
 
