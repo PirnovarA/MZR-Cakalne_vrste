@@ -78,6 +78,7 @@ simulacija.strezb <- function(prihodi, tip = "exp", ...) {
   #       - ce ni stolpca skupina: zgeneriramo po isti porazdelitvi za vse
   #       - ce stolpec skupina: skupine od 1:g, vsaka ima svoje parametre,
   #                             v vrstnem redu kot skupine (1:g)
+  #                             Razen ce skupina 0, potem ista porazd. za vse
   # tip = kako simuliramo case
   # ... = ostali parametri
   # Vrne vektor casov strezbe v istem redu kot input
@@ -88,15 +89,20 @@ simulacija.strezb <- function(prihodi, tip = "exp", ...) {
   }
   if ((is.data.frame(prihodi) | length(prihodi) > 1) & 
       any(names(prihodi) == "skupina")) {
+    skupine <- unique(prihodi$skupina)
     # generiramo po skupinah, ker jih imamo
     if (tip == "exp") {
       # exponentna porazdelitev
-      if (length(param$mu) != length(unique(prihodi$skupina))) {
+      if (length(param$mu) != length(skupine)) {
         stop("Stevilo parametrov mora bit enako kot stevilo skupin!")
+      } else if (all(skupine == 0)) {
+        # Vsi strezniki enako porazdeljeni, jih je neomejeno
+        casiStrezb <- rexp(nrow(prihodi), param$mu)
+      } else {
+        casiStrezb <- prihodi %>% group_by(skupina) %>% 
+          mutate(casiStrezb = rexp(n(), param$mu[skupina[1]])) %>% 
+          pull(casiStrezb)
       }
-      casiStrezb <- prihodi %>% group_by(skupina) %>% 
-        mutate(casiStrezb = rexp(n(), param$mu[skupina[1]])) %>% 
-        pull(casiStrezb)
     }
   } else {
     # Vsi imajo enako porazdelitev
