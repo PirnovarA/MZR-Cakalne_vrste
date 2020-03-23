@@ -35,6 +35,28 @@ simulacija.prihodov <- function(lambda, maxCas = FALSE, maxPrihodi = FALSE) {
   }
   return(prihodi)
 }
+
+dodaj.skupine <- function(prihodi, stSkupin = 0, VIP = 0, ...) {
+  # Funkcija, ki prihodnim casom doda skupine, ki ponazarjajo h katerim
+  # streznim mestom pasejo. Predpostavka: Ena skupina, eno strezno mesto.
+  # prihodi = data.frame prihodov, katerim pripnemo vektor skupin
+  # stSkupin = stevilo skupin oz streznih mest (trenutno isto, razen ce 0,
+  #             potem ni skupin)
+  # VIP = delez; vip osebe, ki pridejo takoj na vrsto, teh je delez v pop.
+  # ... = dodatni parametri glede na prejsnje
+  browser()
+  stOseb <- nrow(prihodi)
+  # Osnovno bodo skupine porazdeljene zaporedoma
+  if (stSkupin == 0) {
+    prihodi$skupine <- rep(0, stOseb)
+  } else {
+    prihodi$skupine <- rep_len(1:stSkupin, stOseb)
+  }
+  # VIP osebe, 0 ponazarja ne, 1 ja
+  prihodi$VIP <- base::sample(c(0,1), stOseb, replace = T, prob = c(1-VIP, VIP))
+  
+  return(prihodi)
+}
 # STREZBE ####################################################################
 simulacija.strezb <- function(prihodi, tip = "exp", ...) {
   # Funkcija ki simulira strezne case
@@ -201,6 +223,8 @@ simulacija.vrste <- function(lambda, mu, k, n, cas) {
 # TESTIRANJE ################################################################
 
 prihodi <- simulacija.prihodov(100, maxCas = 10)
+dodaj.skupine(prihodi)
+
 strezniCasi <- simulacija.strezb(prihodi = prihodi, tip = "exp", mu = 5)
 
 rez <- simulacija.poteka.vrste(20, 5, 10, prihodi, strezniCasi)
