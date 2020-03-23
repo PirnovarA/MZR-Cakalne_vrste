@@ -41,6 +41,7 @@ dodaj.nepotrpezljive <- function(prihodi, delez, ...) {
   # prihodi = data.frame prihodov
   # delez = delez nopotrpezljivih oseb
   # nepotrpezljive osebe, 0 ponazarja ne, 1 ja (imp = impatient)
+  stOseb <- nrow(prihodi)
   prihodi$imp <- base::sample(c(0,1), stOseb, replace = T, 
                               prob = c(1-delez, delez))
   return(prihodi)
