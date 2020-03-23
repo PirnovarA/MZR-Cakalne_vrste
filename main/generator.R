@@ -36,7 +36,17 @@ simulacija.prihodov <- function(lambda, maxCas = FALSE, maxPrihodi = FALSE) {
   return(prihodi)
 }
 
-dodaj.skupine <- function(prihodi, stSkupin = 0, VIP = 0, ...) {
+dodaj.nepotrpezljive <- function(prihodi, delez, ...) {
+  # Doda indikator, ce je oseba neportpezljiva ali ne
+  # prihodi = data.frame prihodov
+  # delez = delez nopotrpezljivih oseb
+  # nepotrpezljive osebe, 0 ponazarja ne, 1 ja (imp = impatient)
+  prihodi$imp <- base::sample(c(0,1), stOseb, replace = T, 
+                              prob = c(1-delez, delez))
+  return(prihodi)
+}
+
+dodaj.skupine <- function(prihodi, stSkupin = 0, VIP = 0, VIP.imp = FALSE) {
   # Funkcija, ki prihodnim casom doda skupine, ki ponazarjajo h katerim
   # streznim mestom pasejo. Predpostavka: Ena skupina, eno strezno mesto.
   # prihodi = data.frame prihodov, katerim pripnemo vektor skupin
@@ -44,17 +54,20 @@ dodaj.skupine <- function(prihodi, stSkupin = 0, VIP = 0, ...) {
   #             potem ni skupin)
   # VIP = delez; vip osebe, ki pridejo takoj na vrsto, teh je delez v pop.
   # ... = dodatni parametri glede na prejsnje
-  browser()
   stOseb <- nrow(prihodi)
   # Osnovno bodo skupine porazdeljene zaporedoma
   if (stSkupin == 0) {
-    prihodi$skupine <- rep(0, stOseb)
+    prihodi$skupina <- rep(0, stOseb)
   } else {
-    prihodi$skupine <- rep_len(1:stSkupin, stOseb)
+    prihodi$skupina <- rep_len(1:stSkupin, stOseb)
   }
   # VIP osebe, 0 ponazarja ne, 1 ja
-  prihodi$VIP <- base::sample(c(0,1), stOseb, replace = T, prob = c(1-VIP, VIP))
-  
+  if (VIP.imp) {
+    # "poznamo" nepotrpezljive osebe, damo jim prednost
+    prihodi$VIP <- prihodi$imp
+  } else {
+    prihodi$VIP <- base::sample(c(0,1), stOseb, replace = T, prob = c(1-VIP, VIP))
+  }
   return(prihodi)
 }
 # STREZBE ####################################################################
@@ -103,7 +116,7 @@ simulacija.strezb <- function(prihodi, tip = "exp", ...) {
 }
 
 # FUNKCIJA POTEKA VRSTE ######################################################
-simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi) {
+simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
   # Simuliramo case strezbe pri cemer predpostavljamo, da so vsi
   # strezniki enaki
   # mu = intenziteta strezbe
@@ -116,6 +129,8 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi) {
   #   zacetek strezbe
   #   ali je oseba cakala ali ne
   #   cas odhoda
+  browser()
+  param <- list(...)
   stOseb <- nrow(prihodi)
   prihodi <-  prihodi %>% mutate(id = 1:nrow(.))
   
@@ -223,9 +238,8 @@ simulacija.vrste <- function(lambda, mu, k, n, cas) {
 # TESTIRANJE ################################################################
 
 prihodi <- simulacija.prihodov(100, maxCas = 10)
-dodaj.skupine(prihodi)
-
-strezniCasi <- simulacija.strezb(prihodi = prihodi, tip = "exp", mu = 5)
+prihodi <- dodaj.skupine(prihodi, stSkupin = 3, VIP = 0.1)
+strezniCasi <- simulacija.strezb(prihodi = prihodi, tip = "exp", mu = c(5, 6, 2))
 
 rez <- simulacija.poteka.vrste(20, 5, 10, prihodi, strezniCasi)
 
