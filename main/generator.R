@@ -36,14 +36,17 @@ simulacija.prihodov <- function(lambda, maxCas = FALSE, maxPrihodi = FALSE) {
   return(prihodi)
 }
 
-dodaj.nepotrpezljive <- function(prihodi, delez, ...) {
+dodaj.nepotrpezljive <- function(prihodi, delez, cas) {
   # Doda indikator, ce je oseba neportpezljiva ali ne
   # prihodi = data.frame prihodov
   # delez = delez nopotrpezljivih oseb
+  # cas = cas, po katerem oseba zapusti cakalnico
   # nepotrpezljive osebe, 0 ponazarja ne, 1 ja (imp = impatient)
+  # impTime je cas, po katerem oseba zapusti cakalnico
   stOseb <- nrow(prihodi)
   prihodi$imp <- base::sample(c(0,1), stOseb, replace = T, 
                               prob = c(1-delez, delez))
+  prihodi$impTime <- cas
   return(prihodi)
 }
 
@@ -155,7 +158,8 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
                             zacetekStrezbe = as.numeric(rep(NA, stOseb)), # cas
                             cakanje = rep(0, stOseb), #0/1
                             odhod = as.numeric(rep(NA, stOseb)), # cas
-                            zasedeno = rep(0, stOseb)) #zasedeno
+                            zasedeno = rep(0, stOseb), #zasedeno
+                            odhodImp = rep(0, stOseb)) # nepotrpezljiv odhod
   # Potrebno za delovanje ####
   stCak <- 0  # St. v cakalnici
   cakalnica <- rep(NA, n) # Vektor casov prihoda, kjer ime ponazarja osebo
@@ -165,6 +169,8 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
   # potem to pomeni, da je trenutno strezena
   dogodki <- prihodi$cas.prihoda    # Casi dogodkov
   stanje <- numeric(stOseb)  # ce 0, potem oseba pride, ce 1, potem je 
+  odhodImp <- numeric(stOseb) # Ce je oseba nestrpna, potem se da sem cas,
+  #                             ko bo zapustila cakalnico
   # ze prisla in je cakala
   skupineCakajocih <- numeric(n)  # skupine cakajocih ljudi, lazje iskanje
   vipCakajoci <- numeric(n) # Ce 0 potem ni VIP, drugace je
@@ -211,15 +217,32 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
         } else {
           skupineCakajocih[prostoMesto] <- skupinaOseba
         }
+        
+        if (prihodi$imp[oseba] == 1) {
+          # Preverimo se, ce je oseba neucakana Ce je, dodamo njen odhod v vrsto
+          casOdhodaImp <- cas + prihodi$impTime[oseba]
+          point <- getPosition(dogodki, casOdhodaImp) 
+          dogodki <- insPosition(dogodki, casOdhodaImp, point)  #dodamo dogodek
+          osebe <- insPosition(osebe, -oseba, point)  # Po vrsti kdaj oseba zapusti
+          odhodImp[oseba] <- casOdhodaImp
+        }
       } else {
         # Strezno mesto zasedeno, cakalnica zasedena
         stOdhodov <- stOdhodov + 1
         dogodkiOseb$odhod[oseba] <- cas
         dogodkiOseb$zasedeno[oseba] <- 1
       }
-      
-    } else {
-      # Oseba je opravila in bo odsla.
+    } else if (oseba < 0 & odhodImp[-oseba] == cas & 
+               strezeneOsebe[-oseba] == 0) {
+      # Neucakana oseba je postala prevec neucakana, zapusti cakalnico
+      cakalnicaImpOs <- which(names(cakalnica) == -oseba)
+      cakalnica[cakalnicaImpOs] <- NA
+      dogodkiOseb$odhod[-oseba] <- cas
+      dogodkiOseb$odhodImp[-oseba] <- 1
+      vipCakajoci[cakalnicaImpOs] <- 0
+      stCak <- stCak - 1
+    } else if (oseba < 0 & is.na(dogodkiOseb$odhod[-oseba])){
+      # Oseba je opravila in bo odsla, ni ze opravila (npr nestrpni)
       prostiStreznik <- which(strezniki == -oseba)
       strezniki[prostiStreznik] <- 0
       dogodkiOseb$odhod[-oseba] <- cas
@@ -269,6 +292,8 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
           #                                                 je na vrsti
           
         }
+        # Ce nic od zgornjega je oseba ze bila postrezena, to je le ostanek, 
+        # ker je bila nestrpna.
       }
     }
   }
@@ -279,7 +304,6 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
   rezultati$stOdhodov <- stOdhodov  # St ljudi, ki je je odslo ker ni bilo prostora
   rezultati$cakalniCasi <- cakalniCasi  # cakalni casi ljudi (ki so cakali)
   rezultati$dogodkiOseb <- dogodkiOseb # za simulacijo
-  
   return(rezultati)
 }
 
@@ -291,23 +315,22 @@ simulacija.vrste <- function(lambda, mu, k, n, cas) {
   # n = stevilo cakalnih mest
   # cas = cas, kolikor so strezna mesta odprta
   
-  
 }
 
 # TESTIRANJE ################################################################
-
 prihodi <- simulacija.prihodov(100, maxCas = 10)
-prihodi <- dodaj.skupine(prihodi, stSkupin = 3, VIP = 0.1)
-strezniCasi <- simulacija.strezb(prihodi = prihodi, tip = "exp", mu = c(5, 6, 2))
+prihodi <- dodaj.nepotrpezljive(prihodi, delez = 0.2, cas = 1/6)
+prihodi <- dodaj.skupine(prihodi, stSkupin = 0, VIP.imp = TRUE)
+strezniCasi <- simulacija.strezb(prihodi = prihodi, tip = "exp", mu = 200)
 
-rez <- simulacija.poteka.vrste(20, 5, 10, prihodi, strezniCasi)
+rez <- simulacija.poteka.vrste(20, 3, 10, prihodi, strezniCasi)
+
 
 # TODO simulacija, ce osebe nepotrpezljive, ce 2 vrsti streznikov
 # ce preddoloceno, kam se morajo uvrstit osebe, druga porazdelitev strezbe,
 # priority
 
 # TODO MC simulacija, za nekatere vrednosti, grafi statistik
-
 
 
 
