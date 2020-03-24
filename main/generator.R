@@ -129,94 +129,146 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
   # mu = intenziteta strezbe
   # k = st. streznikov
   # n = st. cakalnih mest
-  # prihodi = data frame prihodov
+  # prihodi = data frame prihodov v formatu, opisanem zgoraj TODO
   # Vrne seznam statistik vrste:
   #   id osebe
   #   cas prihoda
   #   zacetek strezbe
   #   ali je oseba cakala ali ne
   #   cas odhoda
-  browser()
   param <- list(...)
   stOseb <- nrow(prihodi)
   prihodi <-  prihodi %>% mutate(id = 1:nrow(.))
-  
+  skupine <- unique(prihodi$skupina)
+  if (is.null(skupine)) {skupine <- 0}
+  if (!all(0 == skupine) & length(skupine) != k) {
+    # Ali je toliko skupin kolikor je streznih mest? Ce ne, napaka
+    stop("Stevilo skupin mora biti enako stevilu streznih mest!")
+  }
   # Statistike ####
   stOdhodov <- 0  # St oseb, ki ni imelo prostora v cakalnici
   strezeneOsebe <- numeric(stOseb)  # Vse osebe, ki so bile strezene, 
-                                          # imajo 1
+  # imajo 1
   cakalniCasi <- numeric(stOseb) # Casi v cakalnici
   dogodkiOseb <- data.frame(id = 1:stOseb,  # id
-                            prihod = rep(NA, stOseb), # cas
-                            zacetekStrezbe = rep(NA, stOseb), # cas
+                            prihod = as.numeric(rep(NA, stOseb)), # cas
+                            zacetekStrezbe = as.numeric(rep(NA, stOseb)), # cas
                             cakanje = rep(0, stOseb), #0/1
-                            odhod = rep(NA, stOseb)) # cas
+                            odhod = as.numeric(rep(NA, stOseb)), # cas
+                            zasedeno = rep(0, stOseb)) #zasedeno
   # Potrebno za delovanje ####
   stCak <- 0  # St. v cakalnici
   cakalnica <- rep(NA, n) # Vektor casov prihoda, kjer ime ponazarja osebo
-  stZas <- 0  # St. trenutno strezenih
   strezniki <- numeric(k) # ID-ji strezenih
   
   osebe <- prihodi$id # ID-ji oseb, isti vrstni red kot dogodki. Ce -oseba,
-                      # potem to pomeni, da je trenutno strezena
+  # potem to pomeni, da je trenutno strezena
   dogodki <- prihodi$cas.prihoda    # Casi dogodkov
   stanje <- numeric(stOseb)  # ce 0, potem oseba pride, ce 1, potem je 
-                                    # ze prisla in je cakala
+  # ze prisla in je cakala
+  skupineCakajocih <- numeric(n)  # skupine cakajocih ljudi, lazje iskanje
+  vipCakajoci <- numeric(n) # Ce 0 potem ni VIP, drugace je
+  
+  if (any(skupine == 0)) {
+    # Ce ne razporedimo osebe na skupine (torej skupine vse 0)
+    skupineBool <- FALSE # Ali imamo skupine ali ne
+    skupinaOseba <- 1:k
+  } else {
+    skupineBool <- TRUE
+  }
   while (length(dogodki) > 0) {
     cas <- dogodki[1]
     dogodki <- dogodki[-1]
     oseba <- osebe[1]
     osebe <- osebe[-1]
+    if (skupineBool) {
+      skupinaOseba <- prihodi$skupina[abs(oseba)]
+    }
     if (oseba > 0) {
       # Oseba je prisla
       dogodkiOseb$prihod[oseba] <- cas
-      if (stZas < k) {
+      if (any(skupinaOseba %in% which(strezniki == 0))) {
         # Prosto strezno mesto
         casStrezbe <- strezniCasi[oseba]  # Dobimo strezni cas za to osebo
         point <- getPosition(dogodki, cas + casStrezbe)  # lokacija dogodka
         dogodki <- insPosition(dogodki, cas + casStrezbe, point)  #dodamo dogodek
         osebe <- insPosition(osebe, -oseba, point)  # Po vrsti kdaj oseba zapusti
-        stZas <- stZas + 1  # Mesto se zasede
-        strezniki[which(strezniki == 0)[1]] <- oseba  # Oseba je pri strezniku
+        # Oseba je pri strezniku
+        strezniki[intersect(which(strezniki == 0), skupinaOseba)[1]] <- oseba
         strezeneOsebe[oseba] <- 1 # Oseba je bila postrezena
         dogodkiOseb$zacetekStrezbe[oseba] <- cas
       } else if (stCak < n) {
         # Strezno mesto zasedeno, cakalnica prosta
         prostoMesto <- which(is.na(cakalnica))[1]  # Kje je prosto mesto
+        vipCakajoci[prostoMesto] <- prihodi$VIP[oseba]  # ali oseba VIP
         cakalnica[prostoMesto] <- cas  # Oseba v cakalnici
-        names(cakalnica)[prostoMesto] <- oseba
+        names(cakalnica)[prostoMesto] <- oseba  # Ime cakajoce osebe
         stCak <- stCak + 1  # Eno cakalno mesto vec zasedeno
         dogodkiOseb$cakanje[oseba] <- 1
+        # Dodamo skupino cakajoce osebe
+        if (!skupineBool) {
+          skupineCakajocih[prostoMesto] <- 0
+        } else {
+          skupineCakajocih[prostoMesto] <- skupinaOseba
+        }
       } else {
         # Strezno mesto zasedeno, cakalnica zasedena
         stOdhodov <- stOdhodov + 1
         dogodkiOseb$odhod[oseba] <- cas
+        dogodkiOseb$zasedeno[oseba] <- 1
       }
-        
+      
     } else {
       # Oseba je opravila in bo odsla.
-      strezniki[which(strezniki == -oseba)] <- 0
-      stZas <- stZas - 1
+      prostiStreznik <- which(strezniki == -oseba)
+      strezniki[prostiStreznik] <- 0
       dogodkiOseb$odhod[-oseba] <- cas
       if (stCak > 0) {
-        # Ce kdo v cakalnici, bo na vrsti
-        naVrstiInd <- which(cakalnica == min(cakalnica, na.rm = T))[1]
-        casPrihoda <- cakalnica[naVrstiInd]
-        osebaNaVrsti <- as.integer(names(casPrihoda))  # Oseba iz cakalnice
-        cakalnica[naVrstiInd] <- NA
-        stCak <- stCak - 1 # Zapusti cakalnico
-        
-        cakalniCasi[osebaNaVrsti] <- cas - casPrihoda  # Cas cakanja
-        
-        casStrezbe <- strezniCasi[osebaNaVrsti] # Dobimo strezni cas za to osebo
-        point <- getPosition(dogodki, cas + casStrezbe)  # lokacija dogodka
-        dogodki <- insPosition(dogodki, cas + casStrezbe, point) # dodamo dogodek
-        osebe <- insPosition(osebe, -osebaNaVrsti, point)  # Po vrsti kdaj 
-                                                           # oseba zapusti
-        stZas <- stZas + 1  # Mesto se zasede
-        strezniki[which(strezniki == 0)[1]] <- osebaNaVrsti # Oseba je pri strezniku
-        strezeneOsebe[osebaNaVrsti] <- 1 # Oseba je bila postrezena
-        dogodkiOseb$zacetekStrezbe[osebaNaVrsti] <- cas  # Oseba iz cakanja je na vrsti
+        # Ce kdo v cakalnici, bo na vrsti, ce ustreza pogoju skupine
+        if (!skupineBool) {
+          # Nimamo skupin, iz "prave skupine torej vsi, ki cakajo
+          izPraveSkupine <- 1:n
+          prisotenVip <- 1 %in% vipCakajoci[izPraveSkupine]
+        } else {
+          # Katere cakajoce osebe pripadajo pravi skupini
+          izPraveSkupine <- which(skupineCakajocih == skupinaOseba)
+          prisotenVip <- 1 %in% vipCakajoci[izPraveSkupine]
+          if (prisotenVip) {
+            # Ce imamo vsaj eno VIP osebo
+            izPraveSkupine <- intersect(izPraveSkupine, which(vipCakajoci == 1))
+          }
+        }
+        if (length(izPraveSkupine) != 0) {
+          # Imamo ljudi, ko so lahko na vrsti
+          naVrstiInd <- cakalnica[izPraveSkupine] %>% min(na.rm = T) %>% 
+            equals(cakalnica) %>% which %>% extract(1)
+          if (prisotenVip) {
+            # ce oseba VIP, jo pobrisemo
+            vipCakajoci[naVrstiInd] <- 0
+          }
+          casPrihoda <- cakalnica[naVrstiInd]
+          osebaNaVrsti <- as.integer(names(casPrihoda))  # Oseba iz cakalnice
+          cakalnica[naVrstiInd] <- NA
+          skupineCakajocih[naVrstiInd] <- 0
+          stCak <- stCak - 1 # Zapusti cakalnico
+          
+          cakalniCasi[osebaNaVrsti] <- cas - casPrihoda  # Cas cakanja
+          
+          casStrezbe <- strezniCasi[osebaNaVrsti] # Dobimo strezni cas za to osebo
+          point <- getPosition(dogodki, cas + casStrezbe)  # lokacija dogodka
+          dogodki <- insPosition(dogodki, cas + casStrezbe, point) # dodamo dogodek
+          osebe <- insPosition(osebe, -osebaNaVrsti, point)  # Po vrsti kdaj 
+          #                                                 oseba zapusti
+          
+          # Oseba je pri strezniku (skupinaOseba ostane ista, ker nadomesti
+          # oseba iz iste skupine)
+          strezniki[intersect(which(strezniki == 0), skupinaOseba)[1]] <- 
+            osebaNaVrsti # Oseba je pri strezniku
+          strezeneOsebe[osebaNaVrsti] <- 1 # Oseba je bila postrezena
+          dogodkiOseb$zacetekStrezbe[osebaNaVrsti] <- cas  # Oseba iz cakanja 
+          #                                                 je na vrsti
+          
+        }
       }
     }
   }
