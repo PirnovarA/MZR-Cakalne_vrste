@@ -125,23 +125,63 @@ simulacija.strezb <- function(prihodi, tip = "exp", ...) {
   return(casiStrezb)
 }
 
+simulacija.strezb.razlicni <- function(prihodi, stSkupin, tip, ...) {
+  # Funkcija ki simulira strezne case
+  # prihodi = ce st. potem za toliko oseb rabimo zgenerirati. Ce prihodi
+  #   data.frame, potem toliko casov kot je st. vrstic
+  # stSkupin = stevilo skupin, za katere rabimo generirat case
+  # tip = vektor dolzine kolikor je stevilo skupin za tipe porazdelitev
+  # posameznih skupin
+  # Vrne data.frame casov strezb po vrsti, kot so podani njihovi tipi in parametri
+  param <- list(...)
+  simuliraj.cas <- function(i, tip, stOseb, ...) {
+    # Simulira case strezbe glede na tip in stOseb. ... vsebuje parametre.
+    # i zaradi izbire parametrov
+    if (tip[i] == "exp") {
+      # Exponentna porazdelitev, parameter mu
+      sim <- rexp(stOseb, param$mu[i])
+    }
+    return(sim)
+  }
+  if (is.data.frame(prihodi)) {
+    stOseb <- nrow(prihodi)
+  } else if (length(prihodi) > 1) {
+    stOseb <- length(prihodi)
+  } else {
+    stOseb <- prihodi
+  }
+  casiStrezb <- lapply(1:stSkupin, simuliraj.cas, tip = tip, 
+                       stOseb = stOseb, ...) %>% bind_cols() %>% 
+    `names<-`(paste0("skupina", rep(1:stSkupin)))
+  
+  return(casiStrezb)
+}
 # FUNKCIJA POTEKA VRSTE ######################################################
-simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
-  # Simuliramo case strezbe pri cemer predpostavljamo, da so vsi
-  # strezniki enaki
-  # mu = intenziteta strezbe
+simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
+  # Simuliramo case strezbe pri cemer predpostavljamo, da so strezniki
+  # razdeljeni v skupine
   # k = st. streznikov
   # n = st. cakalnih mest
   # prihodi = data frame prihodov v formatu, opisanem zgoraj TODO
+  # strezniCasi = data frame streznih casov po skupinah, ali pa vektor,
+  #               ce vsi strezni casi porazdeljeni enako
+  # porazd = vektor dolzine k, ki pove, iz katere porazdelitve so strezniki
+  #           na pripadajocem mestu v vektorju. Ce NULL, potem je samo ena 
+  #           porazdelitev
   # Vrne seznam statistik vrste:
   #   id osebe
   #   cas prihoda
   #   zacetek strezbe
   #   ali je oseba cakala ali ne
   #   cas odhoda
-  param <- list(...)
   stOseb <- nrow(prihodi)
   prihodi <-  prihodi %>% mutate(id = 1:nrow(.))
+  if (!is.null(porazd)) {
+    prihodi$skupina <- 0
+  } else {
+    strezniCasi <- data.frame(strezniCasi)
+    porazd <- rep(1, k)
+  }
   skupine <- unique(prihodi$skupina)
   if (is.null(skupine)) {skupine <- 0}
   if (!all(0 == skupine) & length(skupine) != k) {
@@ -195,12 +235,15 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
       dogodkiOseb$prihod[oseba] <- cas
       if (any(skupinaOseba %in% which(strezniki == 0))) {
         # Prosto strezno mesto
-        casStrezbe <- strezniCasi[oseba]  # Dobimo strezni cas za to osebo
+        prostiStreznik <- intersect(which(strezniki == 0), skupinaOseba)[1]
+        # Dobimo strezni cas za to osebo, glede na porazdelitev streznika, h 
+        # katerem bo oseba sla
+        casStrezbe <- strezniCasi[oseba, porazd[prostiStreznik]] %>% as.numeric()  
         point <- getPosition(dogodki, cas + casStrezbe)  # lokacija dogodka
         dogodki <- insPosition(dogodki, cas + casStrezbe, point)  #dodamo dogodek
         osebe <- insPosition(osebe, -oseba, point)  # Po vrsti kdaj oseba zapusti
         # Oseba je pri strezniku
-        strezniki[intersect(which(strezniki == 0), skupinaOseba)[1]] <- oseba
+        strezniki[prostiStreznik] <- oseba
         strezeneOsebe[oseba] <- 1 # Oseba je bila postrezena
         dogodkiOseb$zacetekStrezbe[oseba] <- cas
       } else if (stCak < n) {
@@ -277,7 +320,10 @@ simulacija.poteka.vrste <- function(mu, k, n, prihodi, strezniCasi, ...) {
           
           cakalniCasi[osebaNaVrsti] <- cas - casPrihoda  # Cas cakanja
           
-          casStrezbe <- strezniCasi[osebaNaVrsti] # Dobimo strezni cas za to osebo
+          # Dobimo strezni cas za to osebo glede na porazdelitev
+          # streznika, h kateremu bo oseba sla
+          casStrezbe <- strezniCasi[osebaNaVrsti, porazd[prostiStreznik]] %>%
+            as.numeric() 
           point <- getPosition(dogodki, cas + casStrezbe)  # lokacija dogodka
           dogodki <- insPosition(dogodki, cas + casStrezbe, point) # dodamo dogodek
           osebe <- insPosition(osebe, -osebaNaVrsti, point)  # Po vrsti kdaj 
@@ -318,21 +364,17 @@ simulacija.vrste <- function(lambda, mu, k, n, cas) {
 }
 
 # TESTIRANJE ################################################################
-prihodi <- simulacija.prihodov(100, maxCas = 10)
+prihodi <- simulacija.prihodov(10, maxCas = 10)
 prihodi <- dodaj.nepotrpezljive(prihodi, delez = 0.2, cas = 1/6)
 prihodi <- dodaj.skupine(prihodi, stSkupin = 0, VIP.imp = TRUE)
-strezniCasi <- simulacija.strezb(prihodi = prihodi, tip = "exp", mu = 200)
+strezniCasi <- simulacija.strezb(prihodi, 4, rep("exp", 4), mu = c(1, 1, 1, 1))
 
-rez <- simulacija.poteka.vrste(20, 3, 10, prihodi, strezniCasi)
+rez <- simulacija.poteka.vrste(4, 10, prihodi, strezniCasi$skupina1)
 
 
-# TODO simulacija, ce osebe nepotrpezljive, ce 2 vrsti streznikov
-# ce preddoloceno, kam se morajo uvrstit osebe, druga porazdelitev strezbe,
-# priority
+# TODO simulacija,ce 2 vrsti streznikov
 
 # TODO MC simulacija, za nekatere vrednosti, grafi statistik
-
-
 
 
 
