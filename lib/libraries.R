@@ -1,6 +1,3 @@
 library(dplyr)
 library(magrittr)
 library(shiny)
-library(queuecomputer)
-library(simmer)
-library(hash)
