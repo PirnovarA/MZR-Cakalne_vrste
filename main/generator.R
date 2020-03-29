@@ -427,7 +427,58 @@ rez <- simulacija.vrste(k = 4,
 
 # TODO MC simulacija, za nekatere vrednosti, grafi statistik
 
-
-
+# STATISTIKA ###############################################################
+statistika <- function(rez) {
+  # Izracuna statistike za potek cakalne vrste, izracunan z simulacija.vrste
+  # Dejanski delovni cas
+  maxCas <- max(rez$odhod)
+  statistike <- list()
+  # Povprecen cas strezbe
+  statistike$casStrezbePovp <- rez %>% filter(!is.na(zacetekStrezbe)) %$% 
+    mean(odhod-zacetekStrezbe)
+  # Povprecen cas cakanja
+  statistike$casCakanjaPovp <- rez %$% mean(zacetekStrezbe-prihod, na.rm = T)
+  # Povprecen cas cakanja tistih, ki so cakali in bili postrezeni
+  statistike$casCakanjaCakajociPovp <- rez %>% filter(cakanje == 1) %$% 
+    mean(zacetekStrezbe-prihod, na.rm = T)
+  # Povprecen cas cakanja VIP oseb, ki so cakale in bile postrezene
+  statistike$casCakanjaVIPPovp <- rez %>% filter(VIP == 1, cakanje == 1) %$%
+    mean(zacetekStrezbe-prihod, na.rm = T)
+  # Povprecen cas cakanja ne VIP oseb, ki so cakale in bile postrezene
+  statistike$casCakanjaNeVIPPovp <- rez %>% filter(VIP == 0, cakanje == 1) %$%
+    mean(zacetekStrezbe-prihod, na.rm = T)
+  # Skupni cas zasedenosti posameznega streznika
+  statistike$zasStrTot <- rez %>% filter(!is.na(streznik)) %>% 
+    group_by(streznik) %>%  summarise(zasStrTot = sum(odhod-zacetekStrezbe))
+  # Povp cas zasedenosti posameznega streznika
+  statistike$zasStrPovp <- rez %>% filter(!is.na(streznik)) %>% 
+    group_by(streznik) %>% summarise(zasStrPovp = mean(odhod-zacetekStrezbe))
+  # Delez zasedenosti streznika v celotnem casu
+  statistike$zasStrTotRat <- statistike$zasStrTot %>% 
+    mutate(zasStrTotRat = zasStrTot/maxCas) %>% select(-zasStrTot)
+  # Stevilo postrezenih strank glede na streznik
+  statistike$postrezeniStrNum <- rez %>% filter(!is.na(streznik)) %>% 
+    group_by(streznik) %>% summarise(postrezeniStrNum = n())
+  # Delez vseh postrezenih strank glede na streznik
+  statistike$postrezeniStrRat <- statistike$postrezeniStrNum %>% 
+    mutate(postrezeniStrRat = postrezeniStrNum/nrow(rez)) %>% 
+    select(-postrezeniStrNum)
+  # Stevilo odhodov zaradi zasedenosti vrste
+  statistike$odhZasStrNum <- rez %$% sum(zasedeno)
+  # Stevilo odhodov zaradi nestrpnosti
+  statistike$odhImpNum <- rez %$% sum(odhodImp)
+  # Stevilo odhodov VIP oseb
+  statistike$odhVIPNum <- rez %>% filter(VIP == 1, is.na(zacetekStrezbe)) %>% 
+    summarise(n()) %>% pull()
+  # Delez odhodov nestrpnih zaradi nestrpnosti
+  statistike$odhImpRat <- rez %>% filter(imp == 1) %>% 
+    summarise(sum(odhodImp)/n()) %>% pull()
+  # Delez odhodov nestrpnih vip zaradi nestrpnosti
+  statistike$odhImpVIPRat <- rez %>% filter(VIP == 1, imp == 1) %>% 
+    summarise(sum(odhodImp)/n()) %>% pull()
+  
+  return(statistike)
+}
+statistika(rez)
 
 
