@@ -2,21 +2,21 @@ source("lib/libraries.R")
 source("main/functions.R")
 
 # PRIHODI ####################################################################
-simulacija.prihodov <- function(lambda, maxCas = FALSE, maxPrihodi = FALSE) {
+simulacija.prihodov <- function(lambda, maxCas = NULL, maxPrihodi = NULL) {
   # lambda = intenziteta prihodov
   # maxCas = cas, kolikor so strezna mesta odprta
   # maxPrihodi = koliko prihodov imamo
   # Funkcija simulira prihode, katerih medprihodni cas je porazdeljen eksponentno
-  # Ali cas ali prihod morata biti razlicna od FALSE, vsaj en mora biti FALSE
-  # Ce maxCas != F: Toliko prihodov, dokler skupni cas prihodov manjsi od cas
-  # Ce maxPrihodi != F: 'prihodi' prihodov
+  # Ali cas ali prihod morata biti podana, a le en
+  # Ce podan maxCas: Toliko prihodov, dokler skupni cas prihodov manjsi od cas
+  # Ce podan maxPrihodi: 'prihodi' prihodov
   # Vrne: data frame s stolpcema medsebojnih casov prihodov in skupnim casom
-  if (maxCas == F & maxPrihodi == F) {
+  if (missing(maxCas) & missing(maxPrihodi)) {
     errorCondition("Cas ali prihodi morata biti razlicna od FALSE.")
-  } else if (maxCas != F & maxPrihodi != F) {
-    errorCondition("Ali cas ali prihodi morata biti FALSE (ne oba).")
+  } else if (xor(!missing(maxCas), !missing(maxPrihodi))) {
+    errorCondition("Podan je lahko le cas ali le prihodi (ne oba).")
   }
-  if (maxPrihodi != FALSE) {
+  if (!is.null(maxPrihodi)) {
     prihodi <- data.frame(medprihodni.casi = rexp(maxPrihodi, lambda)) %>% 
       mutate(cas.prihoda = cumsum(medprihodni.casi))
   } else {
@@ -166,14 +166,18 @@ simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
   # strezniCasi = data frame streznih casov po skupinah, ali pa vektor,
   #               ce vsi strezni casi porazdeljeni enako
   # porazd = vektor dolzine k, ki pove, iz katere porazdelitve so strezniki
-  #           na pripadajocem mestu v vektorju. Ce NULL, potem je samo ena 
-  #           porazdelitev
-  # Vrne seznam statistik vrste:
-  #   id osebe
-  #   cas prihoda
-  #   zacetek strezbe
-  #   ali je oseba cakala ali ne
-  #   cas odhoda
+  #           na pripadajocem mestu v vektorju. Ce NULL, potem je samo en  
+  #           podatek o streznikih (lahko se uporabijo skupine)
+  # Vrne data frame z dogodki oseb:
+  #   id: id osebe
+  #   prihod: cas, kdaj je oseba prispela
+  #   zacetekStrezbe: kdaj se je strezba za osebo zacela, NA ce se ni
+  #   odhod: kdaj je oseba odsla (koncala s strezbo/obupala/polna cakalnica)
+  #   cakanje: 0/1, glede na to, ali je oseba cakala ali ne
+  #   zasedeno: 0/1, glede na to, ali je bila cakalnica zasedena ali ne
+  #   odhodImp: 0/1, glede na to, ali je neucakana oseba odsla zaradi neucakanosti
+  #   streznik: stevilka streznika pri katerem je bila oseba
+  
   stOseb <- nrow(prihodi)
   prihodi <-  prihodi %>% mutate(id = 1:nrow(.))
   if (!is.null(porazd)) {
@@ -189,17 +193,17 @@ simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
     stop("Stevilo skupin mora biti enako stevilu streznih mest!")
   }
   # Statistike ####
-  stOdhodov <- 0  # St oseb, ki ni imelo prostora v cakalnici
-  strezeneOsebe <- numeric(stOseb)  # Vse osebe, ki so bile strezene, 
-  # imajo 1
-  cakalniCasi <- numeric(stOseb) # Casi v cakalnici
   dogodkiOseb <- data.frame(id = 1:stOseb,  # id
                             prihod = as.numeric(rep(NA, stOseb)), # cas
                             zacetekStrezbe = as.numeric(rep(NA, stOseb)), # cas
-                            cakanje = rep(0, stOseb), #0/1
                             odhod = as.numeric(rep(NA, stOseb)), # cas
+                            cakanje = rep(0, stOseb), #0/1
                             zasedeno = rep(0, stOseb), #zasedeno
-                            odhodImp = rep(0, stOseb)) # nepotrpezljiv odhod
+                            odhodImp = rep(0, stOseb),  # nepotrpezljiv odhod
+                            streznik = rep(NA, stOseb), # kateri streznik
+                            skupina = prihodi$skupina, # kateri skupini pripada
+                            imp = prihodi$imp, # ali je oseba nepotrpezljiva
+                            VIP = prihodi$VIP)  # ali je vip
   # Potrebno za delovanje ####
   stCak <- 0  # St. v cakalnici
   cakalnica <- rep(NA, n) # Vektor casov prihoda, kjer ime ponazarja osebo
@@ -207,6 +211,8 @@ simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
   
   osebe <- prihodi$id # ID-ji oseb, isti vrstni red kot dogodki. Ce -oseba,
   # potem to pomeni, da je trenutno strezena
+  strezeneOsebe <- numeric(stOseb)  # Vse osebe, ki so bile strezene, 
+  # imajo 1
   dogodki <- prihodi$cas.prihoda    # Casi dogodkov
   stanje <- numeric(stOseb)  # ce 0, potem oseba pride, ce 1, potem je 
   odhodImp <- numeric(stOseb) # Ce je oseba nestrpna, potem se da sem cas,
@@ -246,6 +252,7 @@ simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
         strezniki[prostiStreznik] <- oseba
         strezeneOsebe[oseba] <- 1 # Oseba je bila postrezena
         dogodkiOseb$zacetekStrezbe[oseba] <- cas
+        dogodkiOseb$streznik[oseba] <- prostiStreznik # kateri streznik
       } else if (stCak < n) {
         # Strezno mesto zasedeno, cakalnica prosta
         prostoMesto <- which(is.na(cakalnica))[1]  # Kje je prosto mesto
@@ -271,7 +278,6 @@ simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
         }
       } else {
         # Strezno mesto zasedeno, cakalnica zasedena
-        stOdhodov <- stOdhodov + 1
         dogodkiOseb$odhod[oseba] <- cas
         dogodkiOseb$zasedeno[oseba] <- 1
       }
@@ -318,8 +324,6 @@ simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
           skupineCakajocih[naVrstiInd] <- 0
           stCak <- stCak - 1 # Zapusti cakalnico
           
-          cakalniCasi[osebaNaVrsti] <- cas - casPrihoda  # Cas cakanja
-          
           # Dobimo strezni cas za to osebo glede na porazdelitev
           # streznika, h kateremu bo oseba sla
           casStrezbe <- strezniCasi[osebaNaVrsti, porazd[prostiStreznik]] %>%
@@ -336,6 +340,7 @@ simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
           strezeneOsebe[osebaNaVrsti] <- 1 # Oseba je bila postrezena
           dogodkiOseb$zacetekStrezbe[osebaNaVrsti] <- cas  # Oseba iz cakanja 
           #                                                 je na vrsti
+          dogodkiOseb$streznik[osebaNaVrsti] <- prostiStreznik # kateri streznik
           
         }
         # Ce nic od zgornjega je oseba ze bila postrezena, to je le ostanek, 
@@ -343,36 +348,82 @@ simulacija.poteka.vrste <- function(k, n, prihodi, strezniCasi, porazd = NULL) {
       }
     }
   }
+  rezultati <- dogodkiOseb # za simulacijo
   
-  # queuecomputer::queue_step(prihodi$cas.prihoda, strezbeVse, k)
-  rezultati <- list()
-  rezultati$postrezeni <- which(strezeneOsebe == 1) # Postrezene stranke
-  rezultati$stOdhodov <- stOdhodov  # St ljudi, ki je je odslo ker ni bilo prostora
-  rezultati$cakalniCasi <- cakalniCasi  # cakalni casi ljudi (ki so cakali)
-  rezultati$dogodkiOseb <- dogodkiOseb # za simulacijo
   return(rezultati)
 }
 
 # SIMULACIJA VRSTE ###########################################################
-simulacija.vrste <- function(lambda, mu, k, n, cas) {
-  # lambda = intenziteta prihodov
-  # mu = intenziteta strezbe
+simulacija.vrste <- function(k, n, lambda, maxCas = NULL, maxPrihodi = NULL,
+                             delezImp = 0, maxCakanje = 1/4, skupine = FALSE, 
+                             VIP = 0, VIP.imp = FALSE, tipStr = "exp", 
+                             stRazStr = 1, tipStrSkup = rep("exp", stRazStr),
+                             porazd = rep(1, k), ...) {
   # k = stevilo streznih mest
   # n = stevilo cakalnih mest
-  # cas = cas, kolikor so strezna mesta odprta
-  
+  # lambda = intenziteta prihodov
+  # maxCas, maxPrihodi = parametri za simulacija vrste
+  # delezImp = delez nepotrpezljivih
+  # maxCakanje = maximalen cas cakanja preden nepotrpezljivi oddide
+  # skupine = ali imajo osebe preddolocene streznike (katerih je k)
+  # VIP = delez vip oseb
+  # VIP.imp = ce TRUE, potem vsi nepotrpezljivi pomembni, VIP zanemarjen
+  # tipStr = tip porazdelitve v primeru ko je skupine == TRUE
+  # stRazStr = koliko razlicnih skupin streznikov je, v primeru skupine == FALSE
+  # tipStrSkup = tip porazdelitve skupin streznikov, podan v vektorju (mesto v
+  #               vektorju odgovarja eni tisti skupini), ko skupine == FALSE
+  # porazd = vektor, ki pove, kateri skupini pripada posamezen streznik, 
+  #         ce skupine == FALSE, drugace se ne uposteva
+  # ... = dodatni parametri za funkciji simulacija.strezb in 
+  #       simulacija.strezb.razlicni
+  # Simulacija prihodov
+  if (is.null(maxCas) & is.null(maxPrihodi)) {
+    errorCondition("Podan mora biti maxCas ali maxPrihodi!")
+  } else if (xor(is.null(maxCas), is.null(maxPrihodi))) {
+    prihodi <- simulacija.prihodov(lambda, maxCas, maxPrihodi)
+  } else {
+    errorCondition("Podan je lahko le maxCas ali maxPrihodi!")
+  }
+  # Simulacija nepotrpezljivih
+  prihodi <- dodaj.nepotrpezljive(prihodi, delez = delezImp, cas = maxCakanje)
+  # Dodamo preddolocene skupine, h katerim streznikom gredo katere osebe
+  if (skupine) {
+    stSkupin <- k
+  } else {
+    stSkupin <- 0
+  }
+  prihodi <- dodaj.skupine(prihodi, stSkupin, VIP, VIP.imp)
+  # Funkcija za strezne case
+  if (skupine) {
+    strezniCasi <- simulacija.strezb(prihodi, tip = tipStr, ...)
+  } else {
+    strezniCasi <- simulacija.strezb.razlicni(prihodi, stSkupin = stRazStr,
+                                              tip = tipStrSkup, ...)
+  }
+  # Simulacija strezb
+  if (skupine) {
+    porazd <- NULL
+  }
+  rez <- simulacija.poteka.vrste(k, n, prihodi, strezniCasi, porazd)
 }
 
 # TESTIRANJE ################################################################
-prihodi <- simulacija.prihodov(10, maxCas = 10)
-prihodi <- dodaj.nepotrpezljive(prihodi, delez = 0.2, cas = 1/6)
-prihodi <- dodaj.skupine(prihodi, stSkupin = 0, VIP.imp = TRUE)
-strezniCasi <- simulacija.strezb(prihodi, 4, rep("exp", 4), mu = c(1, 1, 1, 1))
-
-rez <- simulacija.poteka.vrste(4, 10, prihodi, strezniCasi$skupina1)
-
-
-# TODO simulacija,ce 2 vrsti streznikov
+rez <- simulacija.vrste(k = 4,
+                        n = 20,
+                        lambda = 30,
+                        maxCas = 8,
+                        maxPrihodi = NULL,
+                        delezImp = 0.2,
+                        maxCakanje = 1/4,
+                        skupine = FALSE,
+                        VIP = 0.1,
+                        VIP.imp = FALSE,
+                        tipStr = "exp",
+                        stRazStr = 3,
+                        tipStrSkup = rep("exp", 3),
+                        porazd = c(1, 2, 2, 3),
+                        mu = c(10, 8, 5)
+)
 
 # TODO MC simulacija, za nekatere vrednosti, grafi statistik
 
