@@ -406,27 +406,6 @@ simulacija.vrste <- function(k, n, lambda, maxCas = NULL, maxPrihodi = NULL,
   }
   rez <- simulacija.poteka.vrste(k, n, prihodi, strezniCasi, porazd)
 }
-
-# TESTIRANJE ################################################################
-rez <- simulacija.vrste(k = 4,
-                        n = 20,
-                        lambda = 30,
-                        maxCas = 8,
-                        maxPrihodi = NULL,
-                        delezImp = 0.2,
-                        maxCakanje = 1/4,
-                        skupine = FALSE,
-                        VIP = 0.1,
-                        VIP.imp = FALSE,
-                        tipStr = "exp",
-                        stRazStr = 3,
-                        tipStrSkup = rep("exp", 3),
-                        porazd = c(1, 2, 2, 3),
-                        mu = c(10, 8, 5)
-)
-
-# TODO MC simulacija, za nekatere vrednosti, grafi statistik
-
 # STATISTIKA ###############################################################
 statistika <- function(rez) {
   # Izracuna statistike za potek cakalne vrste, izracunan z simulacija.vrste
@@ -479,6 +458,5 @@ statistika <- function(rez) {
   
   return(statistike)
 }
-statistika(rez)
 
 
