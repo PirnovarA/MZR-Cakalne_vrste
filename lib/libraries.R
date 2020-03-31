@@ -1,3 +1,6 @@
 library(dplyr)
+library(tidyr)
 library(magrittr)
 library(shiny)
+library(shinythemes)
+library(shinyjs)
