@@ -1,26 +1,252 @@
-#
-# This is the server logic of a Shiny web application. You can run the
-# application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
 
-library(shiny)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
-
-    output$distPlot <- renderPlot({
-
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
-
+    source("../lib/libraries.R")
+    library(shiny)
+    # Uvodni tekst ####
+    uvodniTekst <- paste(readLines("besedilo/Opis.txt"), collapse=" ")
+    output$text_uvodniTekst <- renderUI({
+        fluidRow(column(1), 
+                 column(10, p(strong(uvodniTekst)), br()
+                        )
+                 )
     })
+    # inputUI maxPrihodi #####
+    output$inputUI_maxPrihodi <- renderUI({
+        if (input$checkbox_maxPrihodi) {
+            numericInput(
+                "input_maxPrihodi",
+                label = "Stevilo prihodov strank:",
+                value = 100,
+                min = 1
+            )
+        } else {
+            numericInput(
+                "input_maxCakanje",
+                label = "Cas delovanja streznikov:",
+                value = 8,
+                min = 0.001
+            )
+        }
+    })
+    # inputUI nestrpni ####
+    output$inputUI_imp <- renderUI({
+        if (input$checkbox_imp) {
+            list(
+            numericInput(
+                inputId = "input_impDelez",
+                label = "Delez nestrpnih ljudi:",
+                value = 0.2,
+                min = 0,
+                max = 1,
+                step = 0.05
+            ),
+            numericInput(
+                inputId = "input_impCas",
+                label = "Cas cakanja nepotrpezljivih oseb pred odhodom:",
+                value = 10,
+                min = 0,
+                step = 0.2
+                )
+            )
+        }
+    })
+    # inputUI VIP ####
+    output$inputUI_vipImp <- renderUI({
+        list(
+            if (input$checkbox_vip & input$checkbox_imp) {
+                checkboxInput(
+                    inputId = "checkbox_vipImp",
+                    label = "Nestrpni osebe naj bodo VIP (imajo prednost)!",
+                    value = FALSE
+                )
+            }
+        )
+    })
+    output$inputUI_vipDelez <- renderUI({
+        inputTemp <- numericInput(
+            inputId = "input_vipDelez",
+            label = "Koliksen delez oseb ima prednost (je VIP):",
+            value = 0.2,
+            min = 0,
+            max = 1,
+            step = 0.05
+        )
+        if (input$checkbox_vip) {
+            if (!input$checkbox_imp) {
+                inputTemp
+            } else if (!input$checkbox_vipImp) {
+                inputTemp
+            }
+            
+        }
+        
+    })
+    # inputUI nacin porazdelitve strezb ####
+    output$inputUI_radio_porazdStr <- renderUI({
+        radioButtons(
+            inputId = "radio_porazdStr",
+            label = "Nacin dolocitve porazdelitve
+                                           streznih casov:",
+            choices = list(`Vsi enako porazdeljeni` = "enako",
+                           `Preddolocimo streznike strankam` = "skupine",
+                           `Strezniki imajo razlicne porazdelitve` = "razlicni"),
+            selected = "enako",
+            inline = T
+        )
+    })
+    # inputUI enako ####
+    output$inputUI_enakoDist <- renderUI({
+        if (input$radio_porazdStr == "enako") {
+            list(
+                selectInput(
+                    inputId = "select_enakoDist",
+                    label = "Porazdelitve, uporabljene za čase streženja:",
+                    choices = list(`Eksponentna porazdelitev` = "exp"),
+                    selected = "exp"
+                )
+            )
+        }
+    })
+    output$inputUI_enakoParam <- renderUI({
+        if (input$radio_porazdStr == "enako") {
+            if (input$select_enakoDist == "exp") {
+                numericInput(
+                    inputId = "input_enakoMu",
+                    label = "Intenziteta prihodov eksponentne porazdelitve (mu):",
+                    min = 0.001,
+                    value = 10
+                )
+            }
+        }
+    })
+    # inputUI skupine ####
+    output$inputUI_skupineDist <- renderUI({
+            if (input$radio_porazdStr == "skupine") {
+                selectInput(
+                    inputId = "select_skupineDist",
+                    label = "Porazdelitve, uporabljene za čase streženja:",
+                    choices = list(`Eksponentna porazdelitev` = "exp"),
+                    selected = "exp"
+                )
+            }
+    })
+    output$inputUI_skupineParam <- renderUI({
+        if (input$radio_porazdStr == "skupine") {
+            list(p(em("Vnesemo toliko parametrov, kolikor je streznikov. Loceni
+            naj bodo s ';'. Vsako zaporedno mesto predstavlja en streznik.")),
+            if (input$select_skupineDist == "exp") {
+                    textInput(
+                        inputId = "input_skupineMu",
+                        label = "Intenzitete prihodov eksponentne porazdelitve
+                              (mu):",
+                        placeholder = "10;5;3;...",
+                        value = paste(rep(10, input$input_k), collapse = ";")
+                    )
+            })
+        }
+    })
+    # inputUI razlicne porazdelitve streznikov ####
+    output$inputUI_stRazlicniStr <- renderUI({
+        if (input$radio_porazdStr == "razlicni") {
+            list(
+            selectInput(
+                inputId = "select_stRazlicnihStr",
+                label = "Stevilo razlicnih porazdelitev streznikov:",
+                choices = 1:input$input_k,
+                selected = input$input_k
+            ),
+            selectInput(
+                inputId = "select_razlicniDistIsti",
+                label = "Porazdelitve, uporabljene za čase streženja:",
+                choices = list(`Eksponentna porazdelitev` = "exp"),
+                selected = "exp",
+            )
+            )
+        }
+    })
+    output$inputUI_razlicniParam <- renderUI({
+        if (input$radio_porazdStr == "razlicni") {
+            list(p(em("Vnesemo toliko parametrov, kolikor je skupin streznikov. 
+            Loceni naj bodo s ';'. Vsako zaporedno mesto predstavlja en 
+                      streznik.")),
+            if (input$select_razlicniDistIsti == "exp") {
+                textInput(
+                    inputId = "input_razlicniMu",
+                    label = "Intenzitete prihodov eksponentne porazdelitve
+                              (mu):",
+                    placeholder = "10;5;3;...",
+                    value = paste(rep(10, input$select_stRazlicnihStr), 
+                                  collapse = ";")
+                )
+            })
+        }
+    })
+    output$inputUI_razlicniSkupStr <- renderUI({
+        if (input$radio_porazdStr == "razlicni") {
+            list(p(strong("Kateri skupini pripadajo strezniki:")),
+            "Vnese se zaporedje stevilk od 1 do stevila skupin streznikov,
+            locenih s ';'. Vsako mesto predstavlja streznik, stevilka pa kateri
+            skupini ta streznik pripada.",
+                textInput(
+                    inputId = "input_dolocitevSkupinStr",
+                    label = NULL,
+                    placeholder = "1;2;3;...",
+                    value = paste(rep(1:input$select_stRazlicnihStr, 
+                                      length.out = input$input_k),
+                                  collapse = ";")
+                )
+            )
+        }
+    })
+    
+    # Delovanje aplikacije ####
+    # Osivljenost Simuliraj gumba
+    observeEvent(c(input$input_k, input$input_n, input$input_lambda,
+                   input$input_maxCakanje, input$input_maxPrihodi,
+                   input$checkbox_maxPrihodi, input$checkbox_imp,
+                   input$input_impDelez, input$input_impCas,
+                   input$checkbox_vip, input$checkbox_vipImp,
+                   input$input_vipDelez), {
+            bool1 <- if(input$checkbox_maxPrihodi) {
+                !is.na(input$input_maxPrihodi)
+            } else {
+                !is.na(input$input_maxCakanje)
+            }
+            bool2 <- if(input$checkbox_imp) {
+                all(!is.na(c(input$input_impDelez, input$input_impCas)))
+            } else {TRUE}
+            bool3 <- if(input$checkbox_vip) {
+                if(!input$checkbox_imp) {
+                    !is.na(input$input_vipDelez)
+                } else {
+                    if (is.null(input$checkbox_vipImp)) {
+                        !is.na(input$input_vipDelez)
+                    } else if (!input$checkbox_vipImp) {
+                        !is.na(input$input_vipDelez)
+                    } else {TRUE}
+                }
+            }
 
+            print(input$select_enakoDist)
+            shinyjs::toggleState("btn_zazeniVrsto",{
+            all(!is.na(c(input$input_k, input$input_n, input$input_lambda)), 
+                bool1, bool2, bool3)
+        })
+                             
+    })
+    # output$inputUI_btn_zazeniVrsto <- renderUI({
+    #     shinyjs::disabled(
+    #     actionButton(
+    #         inputId = "btn_zazeniVrsto",
+    #         label = "Simuliraj"
+    #     ))
+    # })
+    # observeEvent(input$checkbox_maxPrihodi,{
+    #     toggleState(id = "btn_zazeniVrsto", FALSE)
+    # })
+    # observe({
+    #     shinyjs::toggleState("input_k",condition=input$one=="ON")
+    # })
 })

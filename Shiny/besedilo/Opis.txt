@@ -1,0 +1,8 @@
+Vrsta poteka tako, da ljudje prihaja, in ce so prosta mesta, so postrezeni 
+(razen, ce imajo preddolocene streznike in je tisti zaseden). Ce ne morejo biti
+postrezene, gredo v cakalnico, kjer cakajo da osebe, ki so prisle pred njimi 
+odpravijo. Posebnost pri tem so vip osebe, ki imajo v cakalnici vedno prednost.
+Ce jih je vec, se tudi pri njih uposteva hitrost prihoda. Nestrpne osebe po
+nekaj casa (dolocenega) cakanja oddidejo iz cakalnice, brez da bi bile 
+postrezene. Ko oseba neha biti strezena, oddide. Ce je cakalnica zapolnjena
+ob prihodu nove osebe, se ta obrne in oddide, brez strezbe.
