@@ -1,9 +1,12 @@
 
-
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
     source("../lib/libraries.R")
-    library(shiny)
+    source("../main/generator.R", chdir = T)
+    source("server_funkcije.R", chdir = T)
+    source("../graphics/risanje_vrste.R", chdir = T)
+    # Placeholder za reactive vrednosti ####
+    
     # Uvodni tekst ####
     uvodniTekst <- paste(readLines("besedilo/Opis.txt"), collapse=" ")
     output$text_uvodniTekst <- renderUI({
@@ -114,7 +117,7 @@ shinyServer(function(input, output) {
             if (input$select_enakoDist == "exp") {
                 numericInput(
                     inputId = "input_enakoMu",
-                    label = "Intenziteta prihodov eksponentne porazdelitve (mu):",
+                    label = "Intenziteta eksponentne porazdelitve strezenja (mu):",
                     min = 0.001,
                     value = 10
                 )
@@ -139,7 +142,7 @@ shinyServer(function(input, output) {
             if (input$select_skupineDist == "exp") {
                     textInput(
                         inputId = "input_skupineMu",
-                        label = "Intenzitete prihodov eksponentne porazdelitve
+                        label = "Intenzitete eksponentne porazdelitve strezenja
                               (mu):",
                         placeholder = "10;5;3;...",
                         value = paste(rep(10, input$input_k), collapse = ";")
@@ -174,7 +177,7 @@ shinyServer(function(input, output) {
             if (input$select_razlicniDistIsti == "exp") {
                 textInput(
                     inputId = "input_razlicniMu",
-                    label = "Intenzitete prihodov eksponentne porazdelitve
+                    label = "Intenzitete eksponentne porazdelitve strezenja
                               (mu):",
                     placeholder = "10;5;3;...",
                     value = paste(rep(10, input$select_stRazlicnihStr), 
@@ -201,8 +204,9 @@ shinyServer(function(input, output) {
         }
     })
     
+    
     # Delovanje aplikacije ####
-    # Osivljenost Simuliraj gumba
+    # Osivljenost Simuliraj gumba ####
     observeEvent(c(input$input_k, input$input_n, input$input_lambda,
                    input$input_maxCakanje, input$input_maxPrihodi,
                    input$checkbox_maxPrihodi, input$checkbox_imp,
@@ -228,25 +232,58 @@ shinyServer(function(input, output) {
                     } else {TRUE}
                 }
             }
-
-            print(input$select_enakoDist)
             shinyjs::toggleState("btn_zazeniVrsto",{
             all(!is.na(c(input$input_k, input$input_n, input$input_lambda)), 
                 bool1, bool2, bool3)
         })
                              
     })
-    # output$inputUI_btn_zazeniVrsto <- renderUI({
-    #     shinyjs::disabled(
-    #     actionButton(
-    #         inputId = "btn_zazeniVrsto",
-    #         label = "Simuliraj"
-    #     ))
-    # })
-    # observeEvent(input$checkbox_maxPrihodi,{
-    #     toggleState(id = "btn_zazeniVrsto", FALSE)
-    # })
-    # observe({
-    #     shinyjs::toggleState("input_k",condition=input$one=="ON")
-    # })
+    
+    # Zagon simulacije ####
+    observeEvent(
+        input$btn_zazeniVrsto,
+        {
+            rezultati <- preberi.inpute(
+                k = input$input_k,
+                n = input$input_n,
+                lambda = input$input_lambda,
+                checkbox_maxPrihodi = input$checkbox_maxPrihodi,
+                maxPrihodi = input$input_maxPrihodi,
+                maxCakanje = input$input_maxCakanje,
+                checkbox_imp = input$checkbox_imp,
+                impDelez = input$input_impDelez,
+                impCas = input$input_impCas,
+                checkbox_vip = input$checkbox_vip,
+                checkbox_vipImp = input$checkbox_vipImp,
+                vipDelez = input$input_vipDelez,
+                radio_porazdStr = input$radio_porazdStr,
+                enakoDist = input$select_enakoDist,
+                enakoMu = input$input_enakoMu,
+                skupineDist = input$select_skupineDist,
+                skupineMu = input$input_skupineMu,
+                stRazlicnihStr = input$select_stRazlicnihStr,
+                razlicniDistIsti = input$select_razlicniDistIsti,
+                razlicniMu = input$input_razlicniMu,
+                dolocitevSkupinStr = input$input_dolocitevSkupinStr
+            )
+            print(rezultati$status)
+            output$react_simulirano <- eventReactive(input$btn_zazeniVrsto,
+                                                     toString(rezultati$status))
+            outputOptions(output, "react_simulirano", suspendWhenHidden=FALSE)
+            
+            # # TODO sporocila glede na status!
+            # # grafi glede na output, ce status 1
+            # 
+            output$plotUI_vhodni <- renderPlotly({
+                # Na vhodni strani
+                if (rezultati$status == 1) {
+                    #narisi.vrsto.cum(rezultati$zaGraf)
+                    narisi.vrsto.cum.plotly(rezultati$zaGraf)
+                } else {
+                    NULL
+                }
+            })
+            
+    })
+
 })

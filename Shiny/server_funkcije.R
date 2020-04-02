@@ -40,14 +40,19 @@ preberi.inpute <- function(k,
   # Vrne seznam, kjer je na mestu 'status' koda statusa:
   # Koda:
   #   1: Vse okey
-  #   2: Vsaj en input je 0 na mestih: k, n, lambda
+  #   2: Vsaj en input je manjsi ali enak 0 na mestih: k, lambda, 
+  #      ali n manjsi od 0
   #   3: Ali maxPrihodi ali maxCakanje je 0
   #   4: Delez nepotrpezljivih mora biti med 0 in 1
   #   5: Delez vip mora biti med 0 in 1
   #   6: Parametri porazdelitev so napacni
   #   7: Pri podajanju skupin streznikov je prislo do napake
   rezultati <- list()
-  if (any(0 %in% c(k, n, lambda))) {
+  if (any(c(k, lambda) <= 0)) {
+    rezultati$status <- 2
+    return(rezultati)
+  }
+  if (n < 0) {
     rezultati$status <- 2
     return(rezultati)
   }
@@ -63,7 +68,8 @@ preberi.inpute <- function(k,
     }
   }
   if (checkbox_vip) {
-    if (FALSE %in% c(checkbox_vipImp)) {
+    if (!identical(checkbox_vipImp, T)) {
+      checkbox_vipImp <- FALSE
       if (vipDelez < 0 | vipDelez > 1) {
         rezultati$status <- 5
         return(rezultati)
@@ -95,7 +101,7 @@ preberi.inpute <- function(k,
     # Skupine streznikov
     skupineStreznikov <- unlist(strsplit(dolocitevSkupinStr, ";")) %>% 
       as.numeric()
-    if (length(skupineStreznikov == k)) {
+    if (length(skupineStreznikov) == k) {
       if (!any(is.na(skupineStreznikov))) {
         if (!all(skupineStreznikov %in% 1:stRazlicnihStr)) {
           rezultati$status <- 7
@@ -165,6 +171,8 @@ preberi.inpute <- function(k,
                           porazd = porazd,
                           mu = mu)
   rezultati$rez <- rez
+  rezultati$zaGraf <- preoblikuj.vrsto(rez)
   return(rezultati)
 }
+
 
