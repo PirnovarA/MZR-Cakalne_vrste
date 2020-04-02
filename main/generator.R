@@ -1,5 +1,4 @@
-source("lib/libraries.R")
-source("main/functions.R")
+source("functions.R")
 
 # PRIHODI ####################################################################
 simulacija.prihodov <- function(lambda, maxCas = NULL, maxPrihodi = NULL) {
