@@ -1,5 +1,14 @@
 # MZR-Cakalne vrste
 
+## Zagon
+
+V mapi _Shiny_ so datoteke potrebne za pogon aplikacije. Vse knjiznjice so 
+nastete na zacetku datoteke _ui.R_ v tej mapi. Aplikacijo se lahko zazene
+preko R Studia, ali pa direktno v R-u z ukazom 
+```R
+shiny::runApp("Shiny")
+```
+
 ## 1. Osnovna teorija cakalnih vrst
 
 Teorija cakalnih vrst je podzvrst operacijskih raziskav. V praksi je uporabna v 
