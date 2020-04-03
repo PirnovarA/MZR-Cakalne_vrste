@@ -8,7 +8,9 @@ preveri.parametre <- function(porazd, stParam = 1, ...) {
     if (length(mu) == stParam) {
       if (!any(is.na(mu))) {
         if (all(mu >= 0)) {
-          return(TRUE)
+          if (any(sapply(mu, function(x) !identical(x%%1, 0)))){
+            return(TRUE)
+          }
         }
       }
     }
@@ -40,23 +42,26 @@ preberi.inpute <- function(k,
   # Vrne seznam, kjer je na mestu 'status' koda statusa:
   # Koda:
   #   1: Vse okey
-  #   2: Vsaj en input je manjsi ali enak 0 na mestih: k, lambda, 
-  #      ali n manjsi od 0
-  #   3: Ali maxPrihodi ali maxCakanje je 0
+  #   2: - k, lambda manjsa ali enaka 0 
+  #      - n manjsi od 0
+  #      - k ali n nista celi stevili
+  #   3: - Ali maxPrihodi ali maxCakanje je 0
+  #      -  Ali maxPrihodi ni celo stevilo
   #   4: Delez nepotrpezljivih mora biti med 0 in 1
   #   5: Delez vip mora biti med 0 in 1
   #   6: Parametri porazdelitev so napacni
   #   7: Pri podajanju skupin streznikov je prislo do napake
   rezultati <- list()
-  if (any(c(k, lambda) <= 0)) {
+  if (any(c(k, lambda) <= 0) | !identical(k%%1, 0)) {
     rezultati$status <- 2
     return(rezultati)
   }
-  if (n < 0) {
+  if (n < 0 | !identical(n%%1, 0)) {
     rezultati$status <- 2
     return(rezultati)
   }
   if ((checkbox_maxPrihodi & 0 %in% c(maxPrihodi)) |
+      (checkbox_maxPrihodi & !identical(maxPrihodi%%1, 0)) |
       (!checkbox_maxPrihodi & 0 %in% c(maxCakanje))) {
     rezultati$status <- 3
     return(rezultati)

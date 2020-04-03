@@ -15,6 +15,7 @@ shinyServer(function(input, output) {
                         )
                  )
     })
+    
     # inputUI maxPrihodi #####
     output$inputUI_maxPrihodi <- renderUI({
         if (input$checkbox_maxPrihodi) {
@@ -270,6 +271,56 @@ shinyServer(function(input, output) {
             output$react_simulirano <- eventReactive(input$btn_zazeniVrsto,
                                                      toString(rezultati$status))
             outputOptions(output, "react_simulirano", suspendWhenHidden=FALSE)
+            
+            # Pop-up sporocila glede na inpute
+            if (rezultati$status == 2) {
+                showModal(modalDialog(
+                    title = "Problematicni input!",
+                    "Stevilo streznikov in intenziteta prihodov morata
+                    biti vecja od 0, velikost cakalnice pa 0 ali vec. 
+                    Stevilo cakalnih mest in stevilo streznikov morata
+                    biti celi stevili!",
+                    easyClose = TRUE,
+                    footer = NULL
+                ))
+            }else if (rezultati$status == 3) {
+                showModal(modalDialog(
+                    title = "Problematicni input!",
+                    "Maksimalno stevilo prihodov ali maksimalen cas prihoda 
+                    morata biti vecja od 0. Stevilo prihodov mora biti
+                    celo stevilo!",
+                    easyClose = TRUE,
+                    footer = NULL
+                ))
+            }else if (rezultati$status == 4) {
+                showModal(modalDialog(
+                    title = "Delez nepotrpezljivih mora biti med 0 in 1!",
+                    easyClose = TRUE,
+                    footer = NULL
+                ))
+            }else if (rezultati$status == 5) {
+                showModal(modalDialog(
+                    title = "Problematicni input!",
+                    "Delez VIP mora biti med 0 in 1!",
+                    easyClose = TRUE,
+                    footer = NULL
+                ))
+            }else if (rezultati$status == 6) {
+                showModal(modalDialog(
+                    title = "Problematicni input!",
+                    "Parametri porazdelitev strezb so napacni!",
+                    easyClose = TRUE,
+                    footer = NULL
+                ))
+            }else if (rezultati$status == 7) {
+                showModal(modalDialog(
+                    title = "Problematicni input!",
+                    "Napaka pri podajanju skupin ali streznikov!",
+                    easyClose = TRUE,
+                    footer = NULL
+                ))
+            }
+            
             
             # # TODO sporocila glede na status!
             # # grafi glede na output, ce status 1
