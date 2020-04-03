@@ -8,7 +8,7 @@ preveri.parametre <- function(porazd, stParam = 1, ...) {
     if (length(mu) == stParam) {
       if (!any(is.na(mu))) {
         if (all(mu >= 0)) {
-          if (any(sapply(mu, function(x) !identical(x%%1, 0)))){
+          if (all(sapply(mu, function(x) identical(x%%1, 0)))){
             return(TRUE)
           }
         }
