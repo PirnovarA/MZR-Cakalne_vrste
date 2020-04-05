@@ -6,7 +6,7 @@ shinyServer(function(input, output) {
     source("server_funkcije.R", chdir = T)
     source("../graphics/risanje_vrste.R", chdir = T)
     # Placeholder za reactive vrednosti ####
-    
+    podatki <- reactiveVal()
     # Uvodni tekst ####
     uvodniTekst <- paste(readLines("besedilo/Opis.txt"), collapse=" ")
     output$text_uvodniTekst <- renderUI({
@@ -15,7 +15,6 @@ shinyServer(function(input, output) {
                         )
                  )
     })
-    
     # inputUI maxPrihodi #####
     output$inputUI_maxPrihodi <- renderUI({
         if (input$checkbox_maxPrihodi) {
@@ -206,7 +205,6 @@ shinyServer(function(input, output) {
     })
     
     
-    # Delovanje aplikacije ####
     # Osivljenost Simuliraj gumba ####
     observeEvent(c(input$input_k, input$input_n, input$input_lambda,
                    input$input_maxCakanje, input$input_maxPrihodi,
@@ -240,11 +238,25 @@ shinyServer(function(input, output) {
                              
     })
     
+    # Upload vrste ####
+    uploadVrsta <- reactive({
+        upload <- input$upload_vrsta
+        if (is.null(upload)){
+            return(NULL)      
+        }
+        return(readRDS(upload$datapath))
+    })
+
+    observeEvent(input$btn_nalozi, {
+        # Nalozi podatke v reactive spremenljivko
+        podatki(uploadVrsta())
+    })
+    
     # Zagon simulacije ####
     observeEvent(
         input$btn_zazeniVrsto,
         {
-            rezultati <- preberi.inpute(
+            rezultati <- preberi.inpute.generiraj(
                 k = input$input_k,
                 n = input$input_n,
                 lambda = input$input_lambda,
@@ -272,7 +284,7 @@ shinyServer(function(input, output) {
                                                      toString(rezultati$status))
             outputOptions(output, "react_simulirano", suspendWhenHidden=FALSE)
             
-            # Pop-up sporocila glede na inpute
+            # Pop-up sporocila glede na inpute ####
             if (rezultati$status == 2) {
                 showModal(modalDialog(
                     title = "Problematicni input!",
@@ -320,21 +332,77 @@ shinyServer(function(input, output) {
                     footer = NULL
                 ))
             }
-            
-            
-            # # TODO sporocila glede na status!
-            # # grafi glede na output, ce status 1
-            # 
-            output$plotUI_vhodni <- renderPlotly({
-                # Na vhodni strani
-                if (rezultati$status == 1) {
-                    #narisi.vrsto.cum(rezultati$zaGraf)
-                    narisi.vrsto.cum.plotly(rezultati$zaGraf)
-                } else {
-                    NULL
-                }
-            })
-            
+            # Vrsta v reactive vrednost
+            podatki(rezultati)
     })
+    
+    observeEvent(c(input$btn_zazeniVrsto, input$btn_nalozi),
+                 {
+                     if(input$btn_zazeniVrsto != 0 | input$btn_nalozi != 0) {
+                         print("Sem tukaj")
+                         # Plot output in statistika na prvi strani ####
+                         output$plotUI_vhodni <- renderPlotly({
+                             # Na vhodni strani
+                             if (podatki()$status == 1) {
+                                 narisi.vrsto.cum.plotly(podatki()$zaGraf)
+                             } else {
+                                 NULL
+                             }
+                         })
+                         
+                         output$statUI_vhodni <- renderUI({
+                             # Na vhodni strani
+                             if (podatki()$status == 1) {
+                                 list(fluidRow(p(strong("Stevilo vseh prihodov: "),
+                                                 podatki()$stat$stPrih)),
+                                      fluidRow(p(strong("Stevilo postrezenih: "),
+                                                 podatki()$stat$stPostr)),
+                                      fluidRow(p(strong("Povprecni cas strezbe: "),
+                                                 podatki()$stat$casStrezbePovp)),
+                                      fluidRow(p(strong("Povprecni cas cakanja: "),
+                                                 podatki()$stat$casCakanjaPovp)),
+                                      fluidRow(p(strong("Odhod nestrpnih: "),
+                                                 podatki()$stat$odhImpNum)),
+                                      fluidRow(p(strong("Odhod vip oseb: "),
+                                                 podatki()$stat$odhVIPNum))
+                                 )
+                             }else {
+                                 NULL
+                             }
+                         })
+                         
+                         # Download gumb in proces ####
+                         output$btnUI_shraniVrsto <- renderUI({
+                             if (podatki()$status == 1) {
+                                 fluidRow(
+                                     column(9),
+                                     downloadButton(outputId = "dow_shraniVrsto",
+                                                    label = "Shrani vrsto")
+                                 )
+                             } else {
+                                 NULL
+                             }
+                         })
+                         
+                         output$dow_shraniVrsto <- downloadHandler(
+                             filename = function() {
+                                 "zgeneriranaVrsta.RDS"
+                             },
+                             content = function(file) {
+                                 saveRDS(podatki(), file)
+                             }
+                         )
+                         # Ponovitev vseh uporabljenih inputov ####
+                         # output$vhodniUI_inputi <- renderUI({
+                         #     if (rezultati == 1) {
+                         # 
+                         #     } else {
+                         #         NULL
+                         #     }
+                         # })
+                     }
+                     
+                 })
+    
 
 })

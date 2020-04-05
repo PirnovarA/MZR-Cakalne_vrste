@@ -411,6 +411,10 @@ statistika <- function(rez) {
   # Dejanski delovni cas
   maxCas <- max(rez$odhod)
   statistike <- list()
+  # Stevilo prihodov
+  statistike$stPrih <- rez %>% nrow()
+  # Stevilo postrezenih
+  statistike$stPostr <- rez %>% filter(!is.na(zacetekStrezbe)) %>% nrow()
   # Povprecen cas strezbe
   statistike$casStrezbePovp <- rez %>% filter(!is.na(zacetekStrezbe)) %$% 
     mean(odhod-zacetekStrezbe)

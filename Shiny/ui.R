@@ -13,6 +13,17 @@ panelVhodniPodatki <- tabPanel(
     uiOutput("text_uvodniTekst"),
     sidebarLayout(
         sidebarPanel(
+            p(strong("Nalozi shranjeno datoteko vrste")),
+            p(em("Nalozi se lahko datoteko RMD, ki je output te aplikacije.
+                 Druga moznost je, da se vrsto zgenerira na novo s spodnjimi
+                 parametri!")),
+            fileInput(inputId = "upload_vrsta", label = NULL,
+                      accept = c(".RMD", ".rmd")),
+            actionButton(
+                inputId = "btn_nalozi",
+                label = "Nalozi"
+            ),
+            tags$hr(),
             numericInput(
                 inputId = "input_k",
                 value = 4,
@@ -73,7 +84,12 @@ panelVhodniPodatki <- tabPanel(
             column(10,
                    plotlyOutput("plotUI_vhodni")
             )
-            )
+            ),
+            fluidRow(column(2),
+                     column(10, uiOutput("statUI_vhodni")
+                )
+            ),
+            uiOutput("btnUI_shraniVrsto")
         )
         
     )

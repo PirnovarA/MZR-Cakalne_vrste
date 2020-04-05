@@ -7,10 +7,8 @@ preveri.parametre <- function(porazd, stParam = 1, ...) {
       as.numeric()
     if (length(mu) == stParam) {
       if (!any(is.na(mu))) {
-        if (all(mu >= 0)) {
-          if (all(sapply(mu, function(x) identical(x%%1, 0)))){
-            return(TRUE)
-          }
+        if (all(mu > 0)) {
+          return(TRUE)
         }
       }
     }
@@ -18,7 +16,7 @@ preveri.parametre <- function(porazd, stParam = 1, ...) {
   }
 }
 
-preberi.inpute <- function(k,
+preberi.inpute.generiraj <- function(k,
                            n,
                            lambda,
                            checkbox_maxPrihodi,
@@ -51,6 +49,11 @@ preberi.inpute <- function(k,
   #   5: Delez vip mora biti med 0 in 1
   #   6: Parametri porazdelitev so napacni
   #   7: Pri podajanju skupin streznikov je prislo do napake
+  # Ce je koda 1, potem vrne se:
+  # inputi: Seznam uporabljenih inputov
+  # rez: Zgenerirana vrsta
+  # stat: Statistike za to vrsto
+  # zaGraf: Preoblikovana vrsta za graf
   rezultati <- list()
   if (any(c(k, lambda) <= 0) | !identical(k%%1, 0)) {
     rezultati$status <- 2
@@ -123,6 +126,29 @@ preberi.inpute <- function(k,
   }
   # Ce do sedaj ni bilo problema, je status 1
   rezultati$status <- 1
+  # Uporabljeni inputi
+  rezultati$inputi <- list(k,
+                           n,
+                           lambda,
+                           checkbox_maxPrihodi,
+                           maxCakanje,
+                           maxPrihodi,
+                           checkbox_imp,
+                           impDelez,
+                           impCas,
+                           checkbox_vip,
+                           checkbox_vipImp,
+                           vipDelez,
+                           radio_porazdStr,
+                           enakoDist,
+                           enakoMu,
+                           skupineDist,
+                           skupineMu,
+                           stRazlicnihStr,
+                           razlicniDistIsti,
+                           razlicniMu,
+                           dolocitevSkupinStr)
+  
   # Priprava za uporabo v funkciji za generiranje
   if (checkbox_maxPrihodi) {
     maxCakanje <- NULL
@@ -176,6 +202,7 @@ preberi.inpute <- function(k,
                           porazd = porazd,
                           mu = mu)
   rezultati$rez <- rez
+  rezultati$stat <- statistika(rez)
   rezultati$zaGraf <- preoblikuj.vrsto(rez)
   return(rezultati)
 }
