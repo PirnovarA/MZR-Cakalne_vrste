@@ -252,6 +252,12 @@ shinyServer(function(input, output) {
         podatki(uploadVrsta())
     })
     
+    # Osivljenost Nalozi gumba ####
+    observeEvent(input$upload_vrsta, {
+        if (!is.null(input$upload_vrsta)) {
+            shinyjs::enable(id = "btn_nalozi")
+        }
+    })
     # Zagon simulacije ####
     observeEvent(
         input$btn_zazeniVrsto,
@@ -336,10 +342,18 @@ shinyServer(function(input, output) {
             podatki(rezultati)
     })
     
+    # Outputi glede na podatke ####
     observeEvent(c(input$btn_zazeniVrsto, input$btn_nalozi),
                  {
                      if(input$btn_zazeniVrsto != 0 | input$btn_nalozi != 0) {
-                         print("Sem tukaj")
+                         # Ponovitev vseh uporabljenih inputov ####
+                         # output$vhodniUI_inputi <- renderUI({
+                         #     if (rezultati == 1) {
+                         # 
+                         #     } else {
+                         #         NULL
+                         #     }
+                         # })
                          # Plot output in statistika na prvi strani ####
                          output$plotUI_vhodni <- renderPlotly({
                              # Na vhodni strani
@@ -392,14 +406,8 @@ shinyServer(function(input, output) {
                                  saveRDS(podatki(), file)
                              }
                          )
-                         # Ponovitev vseh uporabljenih inputov ####
-                         # output$vhodniUI_inputi <- renderUI({
-                         #     if (rezultati == 1) {
-                         # 
-                         #     } else {
-                         #         NULL
-                         #     }
-                         # })
+                         # Animacija poteka vrste ####
+                         
                      }
                      
                  })

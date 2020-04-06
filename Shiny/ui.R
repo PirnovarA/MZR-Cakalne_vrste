@@ -19,10 +19,10 @@ panelVhodniPodatki <- tabPanel(
                  parametri!")),
             fileInput(inputId = "upload_vrsta", label = NULL,
                       accept = c(".RMD", ".rmd")),
-            actionButton(
+            disabled(actionButton(
                 inputId = "btn_nalozi",
                 label = "Nalozi"
-            ),
+            )),
             tags$hr(),
             numericInput(
                 inputId = "input_k",
