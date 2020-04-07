@@ -345,11 +345,11 @@ shinyServer(function(input, output) {
     # Outputi glede na podatke ####
     observeEvent(c(input$btn_zazeniVrsto, input$btn_nalozi),
                  {
-                     if(input$btn_zazeniVrsto != 0 | input$btn_nalozi != 0) {
+                     if (input$btn_zazeniVrsto != 0 | input$btn_nalozi != 0) {
                          # Ponovitev vseh uporabljenih inputov ####
                          # output$vhodniUI_inputi <- renderUI({
                          #     if (rezultati == 1) {
-                         # 
+                         #
                          #     } else {
                          #         NULL
                          #     }
@@ -367,20 +367,33 @@ shinyServer(function(input, output) {
                          output$statUI_vhodni <- renderUI({
                              # Na vhodni strani
                              if (podatki()$status == 1) {
-                                 list(fluidRow(p(strong("Stevilo vseh prihodov: "),
-                                                 podatki()$stat$stPrih)),
-                                      fluidRow(p(strong("Stevilo postrezenih: "),
-                                                 podatki()$stat$stPostr)),
-                                      fluidRow(p(strong("Povprecni cas strezbe: "),
-                                                 podatki()$stat$casStrezbePovp)),
-                                      fluidRow(p(strong("Povprecni cas cakanja: "),
-                                                 podatki()$stat$casCakanjaPovp)),
-                                      fluidRow(p(strong("Odhod nestrpnih: "),
-                                                 podatki()$stat$odhImpNum)),
-                                      fluidRow(p(strong("Odhod vip oseb: "),
-                                                 podatki()$stat$odhVIPNum))
+                                 list(
+                                     fluidRow(p(
+                                         strong("Stevilo vseh prihodov: "),
+                                         podatki()$stat$stPrih
+                                     )),
+                                     fluidRow(p(
+                                         strong("Stevilo postrezenih: "),
+                                         podatki()$stat$stPostr
+                                     )),
+                                     fluidRow(p(
+                                         strong("Povprecni cas strezbe: "),
+                                         podatki()$stat$casStrezbePovp
+                                     )),
+                                     fluidRow(p(
+                                         strong("Povprecni cas cakanja: "),
+                                         podatki()$stat$casCakanjaPovp
+                                     )),
+                                     fluidRow(p(
+                                         strong("Odhod nestrpnih: "),
+                                         podatki()$stat$odhImpNum
+                                     )),
+                                     fluidRow(p(
+                                         strong("Odhod vip oseb: "),
+                                         podatki()$stat$odhVIPNum
+                                     ))
                                  )
-                             }else {
+                             } else {
                                  NULL
                              }
                          })
@@ -407,10 +420,19 @@ shinyServer(function(input, output) {
                              }
                          )
                          # Animacija poteka vrste ####
+                         # Odkrivanje dodatnih tabov ####
+                         showTab(inputId = "navbar_osnovni",
+                                 target = "tab_statistika")
+                         showTab(inputId = "navbar_osnovni",
+                                 target = "tab_simulacija")
                          
                      }
                      
                  })
     
+    observe({
+        hideTab(inputId = "navbar_osnovni", target = "tab_statistika")
+        hideTab(inputId = "navbar_osnovni", target = "tab_simulacija")
+    })
 
 })

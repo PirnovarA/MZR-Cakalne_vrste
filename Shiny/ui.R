@@ -10,6 +10,7 @@ library(plotly)
 #### Vhodni podatki panel ####
 panelVhodniPodatki <- tabPanel(
     "Vhodni podatki",
+    value = "tab_vhodni",
     uiOutput("text_uvodniTekst"),
     sidebarLayout(
         sidebarPanel(
@@ -95,15 +96,18 @@ panelVhodniPodatki <- tabPanel(
     )
 )
 
-ui <-
-    navbarPage(useShinyjs(),
+ui <- tagList(
+    useShinyjs(),
+    navbarPage(
+        id = "navbar_osnovni",
         theme = shinytheme("cyborg"),
         title = "Cakalne vrste",
         shiny::includeCSS("www/styles.css"),
-        selected = "Vhodni podatki",
+        selected = "tab_vhodni",
         panelVhodniPodatki,
         #### Statistika zgenerirane vrste panel ####
-        tabPanel("Statistika zgenerirane vrste"),
+        tabPanel("Statistika zgenerirane vrste", value = "tab_statistika"),
         #### Simulacija poteka zgenerirane vrste panel ####
-        tabPanel("Simulacija poteka zgenerirane vrste")
+        tabPanel("Simulacija poteka zgenerirane vrste", value = "tab_simulacija")
     )
+)
