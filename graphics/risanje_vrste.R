@@ -101,3 +101,95 @@ narisi.vrsto.cum.plotly <- function(rez.long) {
     config(displayModeBar = F)
 }
 
+ugotovi.potek.vrste <- function(rez.long, k, n) {
+  # Funkcija pripravi podatke za animacijo poteka vrste. Vrne seznam, v katerem
+  # so casi, za katere so stanja vrste in seznami za vsako stanje. Imamo
+  # snapshote stanj v casu za naslednje:
+  #   casi: vsi casi za katere imamo podatke
+  #   strezniki: seznam vektorjev ki prikazujejo id-je strezenih ob casu
+  #   tipiStrezenih: seznam vektorjev ki prikazujejo tipe strezenih ob casu
+  #   cakalnica: seznam vektorjev ki prikazujejo id-je cakajocih ob casu
+  #   tipiCakajocih: seznam vektorjev ki prikazujejo tipe cakajocih ob casu
+  
+  vsiCasi <- c(0, rez.long$cas.dogodka %>% unique())
+  stCasov <- length(vsiCasi)
+  rez.long <- rez.long %>%
+    mutate(tipOsebe = ifelse(VIP == 1 & imp == 1, "impVIP",
+                             ifelse(
+                               VIP == 1, "VIP",
+                               ifelse(imp == 1, "imp",
+                                      "basic")
+                             ))) 
+
+  sezStrezniki <- vector("list", stCasov) %>% lapply(function(x) numeric(k))
+  sezCakalnica <- vector("list", stCasov) %>% lapply(function(x) numeric(n))
+  sezTipiStrezniki <- vector("list", stCasov) %>% 
+    lapply(function(x) character(k))
+  sezTipiCakalnica <- vector("list", stCasov) %>% 
+    lapply(function(x) character(n))
+  
+  # Zaporedoma lahko delamo tako, ker je rez.long urejen ne le po casih vendar
+  # tudi po dogodkih, saj "prihod" < "odhod" < "zacetekStrezbe". Ker so casi 
+  # zvezni dolocimo dogodku da oseba oddide in nova pride na isti cas verjetnost
+  # 0
+  kateriCasPrejsnji <- 1
+  for (i in 1:nrow(rez.long)) {
+    vrstica <- rez.long[i, ]
+    cas <- vrstica$cas.dogodka
+    kateriCas <- which(cas == vsiCasi)
+    # Prvo vzamemo prejsnje stanje cakalnice/streznikov v zdejsnje
+    sezStrezniki[[kateriCas]] <- sezStrezniki[[kateriCasPrejsnji]]
+    sezTipiStrezniki[[kateriCas]] <- sezTipiStrezniki[[kateriCasPrejsnji]]
+    sezCakalnica[[kateriCas]] <- sezCakalnica[[kateriCasPrejsnji]]
+    sezTipiCakalnica[[kateriCas]] <- sezTipiCakalnica[[kateriCasPrejsnji]]
+    if (vrstica$dogodek == "prihod") {
+      # Oseba je prisla
+      if (vrstica$cakanje == 1) {
+        # Strezniki bili zasedeni, oseba gre cakat
+        prostCak <- min(which(sezCakalnica[[kateriCas]] == 0))
+        sezCakalnica[[kateriCas]][prostCak] <- vrstica$id
+        sezTipiCakalnica[[kateriCas]][prostCak] <- vrstica$tipOsebe
+      }
+      
+    } else if (vrstica$dogodek == "odhod") {
+      # Oseba je odsla
+      if (vrstica$zasedeno == 1) {
+        # Strezna mesta in cakalnica so bila zasedena
+      } else if (vrstica$odhodImp == 1) {
+        # Nepotrpezljiva oseba je odsla
+        cakMest <- which(sezCakalnica[[kateriCas]] == vrstica$id)
+        sezCakalnica[[kateriCas]][cakMest] <- 0
+        sezTipiCakalnica[[kateriCas]][cakMest] <- ""
+      } else {
+        # Oseba je koncala s strezbo in odsla
+        sezStrezniki[[kateriCas]][vrstica$streznik] <- 0
+        sezTipiStrezniki[[kateriCas]][vrstica$streznik] <- ""
+      }
+      
+    } else if (vrstica$dogodek == "zacetekStrezbe") {
+      # Oseba je zacela s strezbo
+      if (vrstica$cakanje == 1) {
+        # Oseba je cakala, gre iz cakalnice v strezbo
+        cakMest <- which(sezCakalnica[[kateriCas]] == vrstica$id)
+        sezCakalnica[[kateriCas]][cakMest] <- 0
+        sezTipiCakalnica[[kateriCas]][cakMest] <- ""
+        sezStrezniki[[kateriCas]][vrstica$streznik] <- vrstica$id
+        sezTipiStrezniki[[kateriCas]][vrstica$streznik] <- vrstica$tipOsebe
+      } else {
+        # Oseba ni cakala, gre direktno v strezbo
+        sezStrezniki[[kateriCas]][vrstica$streznik] <- vrstica$id
+        sezTipiStrezniki[[kateriCas]][vrstica$streznik] <- vrstica$tipOsebe
+      }
+    }
+    kateriCasPrejsnji <- kateriCas
+  }
+  
+  rezultati <- list(
+    casi = vsiCasi,
+    strezniki = sezStrezniki,
+    tipiStrezenih = sezTipiStrezniki,
+    cakalnica = sezCakalnica,
+    tipiCakajocih = sezTipiCakalnica
+  )
+}
+
