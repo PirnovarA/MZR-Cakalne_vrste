@@ -85,5 +85,18 @@ streznik, hkrati pa preddolocene streznike dolocujemo zaporedoma. To bi lahko
 ustrezalo principu, da vsakemu ko pride dolocimo drug streznik, ker hocemo 
 lastnorocno prerazporediti ljudi.
 
+# 3. Metoda
 
+Problem pri simuliranju čakalnih vrst je, da se zaporedje dogodkov spreminja
+glede na dogodke, ki so se zgodili pred njimi, saj lahko, da oseba mora cakati,
+da pride oseba s prednostjo itd. Ker so dogodki diskretni, uporabimo 
+**Discrete event simulation (DES)** metodo za simuliranje. Za R obstaja nekaj
+paketov ki se ukvarjajo s takimi simulacijami, a za moj namen sem sam spisal
+kodo za izvajanje teh simulacij, ki vključuje vse zgoraj nastete lastnosti.
+
+# 4. Cilj
+
+Cilj projekta je simulacija in vizualizacija cakalnih vrst z razlicnimi 
+parametri. Na podlagi tega se lahko analizira obnasanje le teh in preizkusa 
+mozne izboljsave oz. alokacije (npr vec streznikov, ki so pocasnejsi ipd.).
 
