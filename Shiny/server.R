@@ -421,10 +421,10 @@ shinyServer(function(input, output) {
                          )
                          # Animacija poteka vrste ####
                          # Odkrivanje dodatnih tabov ####
-                         showTab(inputId = "navbar_osnovni",
-                                 target = "tab_statistika")
-                         showTab(inputId = "navbar_osnovni",
-                                 target = "tab_simulacija")
+                         #showTab(inputId = "navbar_osnovni",
+                          #       target = "tab_statistika")
+                         #showTab(inputId = "navbar_osnovni",
+                          #       target = "tab_simulacija")
                          
                      }
                      
